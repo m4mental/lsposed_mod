@@ -17,7 +17,6 @@ android {
 
     buildTypes {
         release {
-            // प्रोगार्ड सिकुड़न (Shrinking) को बंद रखा है ताकि कोई एरर न आए
             minifyEnabled false
         }
     }
@@ -31,9 +30,6 @@ android {
 }
 
 dependencies {
-    implementation 'androidx.core:core-ktx:1.12.0'
-    implementation 'androidx.appcompat:appcompat:1.6.1'
-    
-    // Xposed API
+    // केवल Xposed API की आवश्यकता है, कोई अन्य भारी लाइब्रेरी नहीं
     compileOnly 'de.robv.android.xposed:api:82'
 }
