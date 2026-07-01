@@ -18,7 +18,7 @@ jobs:
     - name: Checkout Repository
       uses: actions/checkout@v4
 
-    # 1. AGP 8.2.2 के लिए आवश्यक कंपैटिबल Java 17 (JDK 17) सेटअप
+    # 1. Java 17 (JDK 17) का सुचारू सेटअप (AGP 8.2.2 के लिए सबसे अनुकूल)
     - name: Set up JDK 17
       uses: actions/setup-java@v4
       with:
@@ -31,14 +31,25 @@ jobs:
       with:
         gradle-version: '8.5'
 
-    # 3. यदि आपके प्रोजेक्ट रूट में 'gradlew' फाइलें गायब हैं, तो उन्हें यहाँ क्लाउड पर जनरेट करें (बग फिक्स!)
+    # 3. यदि आपके प्रोजेक्ट रूट में 'gradlew' फाइलें गायब हैं, तो उन्हें यहाँ जनरेट करें
     - name: Generate Gradle Wrapper
       run: gradle wrapper --gradle-version 8.5
+
+    # 4. (गिटहब सीक्रेट सुरक्षा) यदि सीक्रेट में बेस64 कीस्टोर मौजूद है, तो उसे डिकोड करें
+    - name: Decode Custom Keystore from Secrets (If Available)
+      run: |
+        if [ -n "${{ secrets.DEBUG_KEYSTORE_BASE64 }}" ]; then
+          echo "${{ secrets.DEBUG_KEYSTORE_BASE64 }}" | base64 --decode > debug.keystore
+          cp debug.keystore app/debug.keystore || true
+          echo "Dynamic Island: Successfully decoded custom debug.keystore from secrets!"
+        else
+          echo "Dynamic Island: No DEBUG_KEYSTORE_BASE64 secret found. Using default/fallback signing."
+        fi
 
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
 
-    # 4. बिना configuration cache टकराव के './gradlew' (Wrapper) से कंपाइल करें
+    # 5. बिना configuration cache टकराव के './gradlew' (Wrapper) से कंपाइल करें
     - name: Build with Gradle
       run: ./gradlew :app:assembleDebug --no-configuration-cache --stacktrace --info
 
