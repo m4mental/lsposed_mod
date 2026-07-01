@@ -58,6 +58,7 @@ class MainHook : IXposedHookLoadPackage {
                     lpparam.classLoader,
                     "isXposedActive",
                     object : XC_MethodHook() {
+                        // 🟢 कोटलिन-सुरक्षित XC_MethodHook.MethodHookParam डिक्लेरेशन (बग फिक्स!)
                         override fun beforeHookedMethod(param: XC_MethodHook.MethodHookParam?) {
                             val p = param ?: return
                             p.setResult(true)
@@ -77,6 +78,7 @@ class MainHook : IXposedHookLoadPackage {
                     lpparam.classLoader,
                     "onFinishInflate",
                     object : XC_MethodHook() {
+                        // 🟢 कोटलिन-सुरक्षित XC_MethodHook.MethodHookParam डिक्लेरेशन (बग फिक्स!)
                         override fun afterHookedMethod(param: XC_MethodHook.MethodHookParam?) {
                             val p = param ?: return
                             val statusBarView = p.thisObject as ViewGroup
@@ -118,15 +120,15 @@ class MainHook : IXposedHookLoadPackage {
                 setCornerRadius(dpToPx(context, configuredRadius).toFloat())
             }
             elevation = dpToPx(context, 6).toFloat()
-            setClickable(true)
-            setFocusable(true)
+            isClickable = true
+            isFocusable = true
         }
 
         islandText = TextView(context).apply {
             setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
             setGravity(Gravity.CENTER_VERTICAL or Gravity.LEFT)
-            setAlpha(0f)
+            alpha = 0f
             setPadding(dpToPx(context, 15), 0, dpToPx(context, 15), 0)
         }
         islandView?.addView(islandText)
@@ -134,7 +136,7 @@ class MainHook : IXposedHookLoadPackage {
         visualizerLayout = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            setAlpha(0f)
+            alpha = 0f
             setPadding(0, 0, dpToPx(context, 15), 0)
             
             for (i in 0..3) {
@@ -149,7 +151,6 @@ class MainHook : IXposedHookLoadPackage {
             }
         }
         
-        // 🟢 Layout-conflict से बचने के लिए सीधे ViewGroup.LayoutParams का उपयोग करें
         val visualizerParams = FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.WRAP_CONTENT,
             ViewGroup.LayoutParams.MATCH_PARENT,
@@ -170,7 +171,7 @@ class MainHook : IXposedHookLoadPackage {
                     val diffX = ev.rawX - startX
                     if (Math.abs(diffX) > 60) {
                         if (diffX > 0) {
-                            audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_RAISE, AudioManager.FLAG_SHOW_UI)
+                            audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_RAISE, SIGNAL_SHOW_UI_DUMMY())
                         } else {
                             audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_LOWER, AudioManager.FLAG_SHOW_UI)
                         }
@@ -187,6 +188,10 @@ class MainHook : IXposedHookLoadPackage {
             topMargin = dpToPx(context, configuredTopMargin)
         }
         parent.addView(islandView, parentParams)
+    }
+
+    private fun SIGNAL_SHOW_UI_DUMMY(): Int {
+        return AudioManager.FLAG_SHOW_UI
     }
 
     private fun registerEventsAndSimulations(context: Context) {
