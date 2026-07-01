@@ -21,6 +21,7 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewGroup.LayoutParams // 🟢 क्लास टकराव सुरक्षा
 import android.view.animation.OvershootInterpolator
 import android.widget.FrameLayout
 import android.widget.LinearLayout
@@ -56,10 +57,10 @@ class MainHook : IXposedHookLoadPackage {
                 XposedHelpers.findAndHookMethod(
                     "com.example.dynamicisland.MainActivity",
                     lpparam.classLoader,
-                    "isXposedActive", // 🟢 सही डमी फ़ंक्शन हुक नेम
+                    "isXposedActive",
                     object : XC_MethodHook() {
                         override fun beforeHookedMethod(param: MethodHookParam) {
-                            param.setResult(true)
+                            param.setResult(true) // 🟢 सुरक्षित और स्पष्ट सेटर मेथड
                         }
                     }
                 )
@@ -148,8 +149,8 @@ class MainHook : IXposedHookLoadPackage {
         }
         
         val visualizerParams = FrameLayout.LayoutParams(
-            ViewGroup.LayoutParams.WRAP_CONTENT,
-            ViewGroup.LayoutParams.MATCH_PARENT,
+            LayoutParams.WRAP_CONTENT,
+            LayoutParams.MATCH_PARENT,
             Gravity.RIGHT or Gravity.CENTER_VERTICAL
         )
         islandView?.addView(visualizerLayout, visualizerParams)
@@ -336,6 +337,7 @@ class MainHook : IXposedHookLoadPackage {
     private fun performHapticTick(context: Context) {
         try {
             val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+            // 🟢 केवल Android T+ संगत सुरक्षित वाइब्रेशन
             vibrator.vibrate(VibrationEffect.createOneShot(15, VibrationEffect.DEFAULT_AMPLITUDE))
         } catch (e: Exception) {}
     }
