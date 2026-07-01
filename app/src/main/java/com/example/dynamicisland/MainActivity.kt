@@ -11,6 +11,7 @@ import android.os.Build
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.SeekBar
@@ -83,11 +84,10 @@ class MainActivity : Activity() {
             setTextColor(Color.GRAY)
         }
 
-        // 🟢 कम्पाइलर-सेफ Layout Constant रिज़ॉल्यूशन (-2 यानी WRAP_CONTENT)
-        val paramCalib = LinearLayout.LayoutParams(0, -2).apply {
+        val paramCalib = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
             weight = 1f
         }
-        val paramSim = LinearLayout.LayoutParams(0, -2).apply {
+        val paramSim = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
             weight = 1f
         }
 
@@ -182,8 +182,7 @@ class MainActivity : Activity() {
                 }
                 sendBroadcast(intent)
             }
-            // 🟢 कम्पाइलर-सेफ Layout Constant रिज़ॉल्यूशन (-1 यानी MATCH_PARENT, -2 यानी WRAP_CONTENT)
-            val params = LinearLayout.LayoutParams(-1, -2).apply {
+            val params = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
                 topMargin = 10
                 bottomMargin = 15
             }
@@ -201,7 +200,6 @@ class MainActivity : Activity() {
         super.onResume()
         val filter = IntentFilter("com.example.dynamicisland.REPLY_STATUS")
         
-        // 🟢 कोडिंग कम्फर्ट: किसी भी SDK वर्शन पर रिफ्लेक्शन से एक्सपोर्टेड रिसीवर कॉल करें
         safeRegisterReceiver(this, statusReceiver, filter)
         
         sendBroadcast(Intent("com.example.dynamicisland.QUERY_STATUS"))
@@ -225,7 +223,6 @@ class MainActivity : Activity() {
         sendBroadcast(intent)
     }
 
-    // 🟢 100% कंपाइल-सेफ रिफ्लेक्शन मेथड (यह एरर को पूरी तरह रोकेगा)
     private fun safeRegisterReceiver(context: Context, receiver: BroadcastReceiver, filter: IntentFilter) {
         try {
             if (Build.VERSION.SDK_INT >= 33) {
@@ -233,9 +230,9 @@ class MainActivity : Activity() {
                     "registerReceiver",
                     BroadcastReceiver::class.java,
                     IntentFilter::class.java,
-                    Int::class.javaPrimitiveType
+                    Int::class.java // 🟢 कोटलिन इन-बिल्ट प्रिमिटिव रिज़ॉल्यूशन (FIXED!)
                 )
-                method.invoke(context, receiver, filter, 2) // 2 का मतलब Context.RECEIVER_EXPORTED है
+                method.invoke(context, receiver, filter, 2)
             } else {
                 context.registerReceiver(receiver, filter)
             }
