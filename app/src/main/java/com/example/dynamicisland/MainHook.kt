@@ -15,7 +15,7 @@ import android.os.BatteryManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
-import android.os.VibrationEffect
+import android.os.VibrationEffect // 🟢 महत्वपूर्ण इम्पोर्ट सुनिश्चित किया गया!
 import android.os.Vibrator
 import android.util.TypedValue
 import android.view.Gravity
@@ -29,7 +29,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import de.robv.android.xposed.IXposedHookLoadPackage
 import de.robv.android.xposed.XC_MethodHook
-import de.robv.android.xposed.XC_MethodHook.MethodHookParam // 🟢 क्रिटिकल नेस्टेड क्लास इम्पोर्ट!
+import de.robv.android.xposed.XC_MethodHook.MethodHookParam // 🟢 सुरक्षित क्लास इम्पोर्ट
 import de.robv.android.xposed.XposedBridge
 import de.robv.android.xposed.XposedHelpers
 import de.robv.android.xposed.XSharedPreferences
@@ -183,15 +183,15 @@ class MainHook : IXposedHookLoadPackage {
                 setCornerRadius(dpToPx(context, configuredRadius).toFloat())
             }
             elevation = dpToPx(context, 6).toFloat()
-            setClickable(true)
-            setFocusable(true)
+            isClickable = true
+            isFocusable = true
         }
 
         islandText = TextView(context).apply {
             setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
             setGravity(Gravity.CENTER_VERTICAL or Gravity.LEFT)
-            setAlpha(0f)
+            alpha = 0f
             setPadding(dpToPx(context, 15), 0, dpToPx(context, 15), 0)
         }
         islandView?.addView(islandText)
@@ -199,7 +199,7 @@ class MainHook : IXposedHookLoadPackage {
         visualizerLayout = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            setAlpha(0f)
+            alpha = 0f
             setPadding(0, 0, dpToPx(context, 15), 0)
             
             for (i in 0..3) {
