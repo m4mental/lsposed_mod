@@ -34,12 +34,12 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
 
-    # एरर की सटीक पहचान के लिए स्टैकट्रेस के साथ बिल्ड करें
+    # assembleRelease की जगह assembleDebug का उपयोग करें ताकि APK ऑटो-साइन हो जाए
     - name: Build with Gradle
-      run: ./gradlew assembleRelease --stacktrace --info
+      run: ./gradlew assembleDebug --stacktrace --info
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: LSPosed-DynamicIsland-Release
-        path: app/build/outputs/apk/release/*.apk
+        name: LSPosed-DynamicIsland-Debug
+        path: app/build/outputs/apk/debug/*.apk
