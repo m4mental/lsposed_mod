@@ -21,7 +21,6 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
-import android.view.ViewGroup.LayoutParams // 🟢 क्लास टकराव सुरक्षा
 import android.view.animation.OvershootInterpolator
 import android.widget.FrameLayout
 import android.widget.LinearLayout
@@ -59,8 +58,10 @@ class MainHook : IXposedHookLoadPackage {
                     lpparam.classLoader,
                     "isXposedActive",
                     object : XC_MethodHook() {
-                        override fun beforeHookedMethod(param: MethodHookParam) {
-                            param.setResult(true) // 🟢 सुरक्षित और स्पष्ट सेटर मेथड
+                        // 🟢 प्लेटफ़ॉर्म नल-सुरक्षा के साथ हुक मेथड पैरामीटर
+                        override fun beforeHookedMethod(param: MethodHookParam?) {
+                            val p = param ?: return
+                            p.setResult(true)
                         }
                     }
                 )
@@ -77,8 +78,9 @@ class MainHook : IXposedHookLoadPackage {
                     lpparam.classLoader,
                     "onFinishInflate",
                     object : XC_MethodHook() {
-                        override fun afterHookedMethod(param: MethodHookParam) {
-                            val statusBarView = param.thisObject as ViewGroup
+                        override fun afterHookedMethod(param: MethodHookParam?) {
+                            val p = param ?: return
+                            val statusBarView = p.thisObject as ViewGroup
                             val context = statusBarView.context
 
                             Handler(Looper.getMainLooper()).post {
@@ -148,30 +150,33 @@ class MainHook : IXposedHookLoadPackage {
             }
         }
         
+        // 🟢 प्रत्यक्ष रूप से पूर्ण क्लास पाथ का उपयोग
         val visualizerParams = FrameLayout.LayoutParams(
-            LayoutParams.WRAP_CONTENT,
-            LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.MATCH_PARENT,
             Gravity.RIGHT or Gravity.CENTER_VERTICAL
         )
         islandView?.addView(visualizerLayout, visualizerParams)
 
         var startX = 0f
-        islandView?.setOnTouchListener { view, event ->
+        islandView?.setOnTouchListener { _, event ->
+            // 🟢 मोशनइवेंट की प्लेटफ़ॉर्म नल-सुरक्षा (Kotlin Compiler Error Preventer)
+            val ev = event ?: return@setOnTouchListener false
             val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-            when (event.action) {
+            when (ev.action) {
                 MotionEvent.ACTION_DOWN -> {
-                    startX = event.rawX
+                    startX = ev.rawX
                     performHapticTick(context)
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    val diffX = event.rawX - startX
+                    val diffX = ev.rawX - startX
                     if (Math.abs(diffX) > 60) {
                         if (diffX > 0) {
                             audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_RAISE, AudioManager.FLAG_SHOW_UI)
                         } else {
                             audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_LOWER, AudioManager.FLAG_SHOW_UI)
                         }
-                        startX = event.rawX
+                        startX = ev.rawX
                         performHapticTick(context)
                     }
                 }
@@ -193,26 +198,31 @@ class MainHook : IXposedHookLoadPackage {
             addAction("com.example.dynamicisland.SIMULATE_STATE")
         }
 
+        // 🟢 पूर्ण रूप से नल-सुरक्षित ब्रॉडकास्ट रिसीवर
         val receiver = object : BroadcastReceiver() {
-            override fun onReceive(ctx: Context, intent: Intent) {
-                when (intent.action) {
+            override fun onReceive(ctx: Context?, intent: Intent?) {
+                val c = ctx ?: return
+                val i = intent ?: return
+                val action = i.action ?: return
+
+                when (action) {
                     "com.example.dynamicisland.UPDATE_SETTINGS" -> {
-                        configuredTopMargin = intent.getIntExtra("topMargin", 8)
-                        configuredWidth = intent.getIntExtra("width", 40)
-                        configuredHeight = intent.getIntExtra("height", 40)
-                        configuredRadius = intent.getIntExtra("radius", 20)
+                        configuredTopMargin = i.getIntExtra("topMargin", 8)
+                        configuredWidth = i.getIntExtra("width", 40)
+                        configuredHeight = i.getIntExtra("height", 40)
+                        configuredRadius = i.getIntExtra("radius", 20)
                         
                         if (activeMode == "idle") {
-                            applyModeConfig(ctx, configuredWidth, configuredHeight, 0f, null, false)
+                            applyModeConfig(c, configuredWidth, configuredHeight, 0f, null, false)
                         }
                     }
                     "com.example.dynamicisland.QUERY_STATUS" -> {
-                        ctx.sendBroadcast(Intent("com.example.dynamicisland.REPLY_STATUS"))
+                        c.sendBroadcast(Intent("com.example.dynamicisland.REPLY_STATUS"))
                     }
                     "com.example.dynamicisland.SIMULATE_STATE" -> {
-                        val state = intent.getStringExtra("state") ?: "idle"
+                        val state = i.getStringExtra("state") ?: "idle"
                         activeMode = state
-                        handleStateTransition(ctx, state)
+                        handleStateTransition(c, state)
                     }
                 }
             }
@@ -337,7 +347,6 @@ class MainHook : IXposedHookLoadPackage {
     private fun performHapticTick(context: Context) {
         try {
             val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-            // 🟢 केवल Android T+ संगत सुरक्षित वाइब्रेशन
             vibrator.vibrate(VibrationEffect.createOneShot(15, VibrationEffect.DEFAULT_AMPLITUDE))
         } catch (e: Exception) {}
     }
