@@ -76,7 +76,6 @@ class MainActivity : Activity() {
             setTextColor(Color.GRAY)
         }
 
-        // कंपाइल-सेफ लेआउट पैरामीटर्स सेटिंग्स (weight = 1f)
         val paramCalib = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
             weight = 1f
         }
