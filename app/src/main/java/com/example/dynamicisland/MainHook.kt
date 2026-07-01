@@ -217,7 +217,6 @@ class MainHook : IXposedHookLoadPackage {
             }
         }
 
-        // Android 13+ (SDK 33) सुरक्षा जांच के साथ ब्रॉडकास्ट रजिस्टर करें
         if (Build.VERSION.SDK_INT >= 33) {
             context.registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
         } else {
