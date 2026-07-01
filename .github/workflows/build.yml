@@ -18,27 +18,33 @@ jobs:
     - name: Checkout Repository
       uses: actions/checkout@v4
 
-    # 1. AGP 9.1.1+ के लिए आवश्यक JDK 21 का सुचारू सेटअप
+    # 1. Java 21 (JDK 21) सेटअप करें (AGP 9.1.1+ के लिए आवश्यक)
     - name: Set up JDK 21
       uses: actions/setup-java@v4
       with:
         java-version: '21'
         distribution: 'temurin'
 
-    # 2. AGP 9.1.1 के लिए आवश्यक संगत Gradle 8.10.2 सेटअप करें
+    # 2. Gradle 8.10.2 सेटअप
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v4
       with:
         gradle-version: '8.10.2'
 
-    # 3. JDK 21 के साथ सुरक्षित ग्रैडल रैपर जनरेट करें
+    # 3. Gradle Wrapper जनरेट करें
     - name: Generate Gradle Wrapper
       run: gradle wrapper --gradle-version 8.10.2
 
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
 
-    # 4. बिना कॉन्फ़िगरेशन कैशिंग टकराव के `./gradlew` से कम्पाइल करें
+    # 4. (Option B) - गैर-इंटरैक्टिव तरीके से रनटाइम पर dummy debug.keystore फ़ाइल बनाएँ (No Prompts, No Blocks)
+    - name: Generate Dummy Debug Keystore
+      run: |
+        keytool -genkeypair -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US" -noprompt
+        cp debug.keystore app/debug.keystore || true
+
+    # 5. बिना configuration cache टकराव के assembleDebug कमांड से बिल्ड करें
     - name: Build with Gradle
       run: ./gradlew assembleDebug --no-configuration-cache --stacktrace --info
 
