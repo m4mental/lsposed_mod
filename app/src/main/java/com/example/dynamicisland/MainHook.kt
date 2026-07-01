@@ -15,7 +15,7 @@ import android.os.BatteryManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
-import android.os.VibrationEffect
+import android.os.VibrationEffect // 🟢 अत्यंत महत्वपूर्ण इम्पोर्ट जोड़ा गया!
 import android.os.Vibrator
 import android.util.TypedValue
 import android.view.Gravity
@@ -88,7 +88,6 @@ class MainHook : IXposedHookLoadPackage {
 
                             Handler(Looper.getMainLooper()).postDelayed({
                                 try {
-                                    // 🟢 यदि PhoneStatusBarView हुक नहीं हो पाया (कस्टम ROMs), तो WindowManager फॉलबैक का उपयोग करें
                                     if (!isInitialized) {
                                         XposedBridge.log("Dynamic Island: PhoneStatusBarView not found. Using Universal WindowManager Fallback!")
                                         loadSavedSettings(context)
@@ -98,12 +97,11 @@ class MainHook : IXposedHookLoadPackage {
                                 } catch (e: Exception) {
                                     XposedBridge.log("Dynamic Island: Universal initialization failed - " + e.message)
                                 }
-                            }, 1500) // सिस्टम ऐप्स लोड होने के लिए हल्का डिले
+                            }, 1500)
                         }
                     }
                 )
 
-                // स्टॉक और सामान्य रॉम के लिए PhoneStatusBarView हुक
                 XposedHelpers.findAndHookMethod(
                     "com.android.systemui.statusbar.phone.PhoneStatusBarView",
                     lpparam.classLoader,
@@ -144,7 +142,6 @@ class MainHook : IXposedHookLoadPackage {
         configuredRadius = pref.getInt("radius", 20)
     }
 
-    // सामान्य एंड्रॉइड और Nothing OS के लिए व्यू निर्माण
     private fun createDynamicIsland(context: Context, parent: ViewGroup) {
         if (isInitialized) return
         buildBaseIslandView(context)
@@ -157,18 +154,16 @@ class MainHook : IXposedHookLoadPackage {
         isInitialized = true
     }
 
-    // 🟢 यूनिवर्सल फॉलबैक: सभी एंड्रॉइड 16 रॉम्स के लिए विंडो ओवरले व्यू निर्माण
     private fun createDynamicIslandUniversal(context: Context) {
         if (isInitialized) return
         buildBaseIslandView(context)
 
         val wm = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
         
-        // TYPE_STATUS_BAR_ADDITION (2014) सिस्टम ओवरले अनुमति का उपयोग करके तैरता हुआ व्यू जोड़ें
         val params = WindowManager.LayoutParams(
             dpToPx(context, configuredWidth),
             dpToPx(context, configuredHeight),
-            2014, // WindowManager.LayoutParams.TYPE_STATUS_BAR_ADDITION
+            2014,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT
         ).apply {
@@ -180,7 +175,6 @@ class MainHook : IXposedHookLoadPackage {
         isInitialized = true
     }
 
-    // मुख्य आइलैंड की बनावट (व्यू सेटअप)
     private fun buildBaseIslandView(context: Context) {
         islandView = FrameLayout(context).apply {
             background = GradientDrawable().apply {
@@ -188,15 +182,15 @@ class MainHook : IXposedHookLoadPackage {
                 setCornerRadius(dpToPx(context, configuredRadius).toFloat())
             }
             elevation = dpToPx(context, 6).toFloat()
-            setClickable(true)
-            setFocusable(true)
+            isClickable = true
+            isFocusable = true
         }
 
         islandText = TextView(context).apply {
             setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
             setGravity(Gravity.CENTER_VERTICAL or Gravity.LEFT)
-            setAlpha(0f)
+            alpha = 0f
             setPadding(dpToPx(context, 15), 0, dpToPx(context, 15), 0)
         }
         islandView?.addView(islandText)
@@ -204,7 +198,7 @@ class MainHook : IXposedHookLoadPackage {
         visualizerLayout = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            setAlpha(0f)
+            alpha = 0f
             setPadding(0, 0, dpToPx(context, 15), 0)
             
             for (i in 0..3) {
@@ -385,7 +379,6 @@ class MainHook : IXposedHookLoadPackage {
             val currentW = (startW + (endW - startW) * fraction).toInt()
             val currentH = (startH + (endH - startH) * fraction).toInt()
 
-            // MarginLayoutParams का सुरक्षित रीयल-टाइम अपडेट (PhoneStatusBarView और WindowManager दोनों के लिए सामान्य)
             island.layoutParams = (island.layoutParams as ViewGroup.MarginLayoutParams).apply {
                 width = currentW
                 height = currentH
