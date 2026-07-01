@@ -6,7 +6,6 @@
         android:label="Dynamic Island Calibrator"
         android:theme="@android:style/Theme.DeviceDefault">
         
-        <!-- लॉन्चर ऐप एक्टिविटी -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -17,15 +16,14 @@
             </intent-filter>
         </activity>
 
-        <!-- LSPosed को बताने के लिए कि यह एक मॉड्यूल है -->
         <meta-data
             android:name="xposedmodule"
             android:value="true" />
         
-        <!-- ऑटोमैटिक स्कोप (Scope) रिकमेंडेशन: SystemUI और आपका ऐप खुद-ब-खुद सिलेक्ट हो जाएगा -->
+        <!-- अब आपको केवल System UI को हुक करने की आवश्यकता है, खुद के ऐप को नहीं! -->
         <meta-data
             android:name="xposedscope"
-            android:value="com.android.systemui;com.example.dynamicisland" />
+            android:value="com.android.systemui" />
         
         <meta-data
             android:name="xposeddescription"
