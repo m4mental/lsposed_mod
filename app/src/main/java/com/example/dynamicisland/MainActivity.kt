@@ -181,7 +181,7 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         val filter = IntentFilter("com.example.dynamicisland.REPLY_STATUS")
-        registerReceiver(statusReceiver, filter, 2)
+        registerReceiver(statusReceiver, filter, Context.RECEIVER_EXPORTED)
         sendBroadcast(Intent("com.example.dynamicisland.QUERY_STATUS"))
     }
 
