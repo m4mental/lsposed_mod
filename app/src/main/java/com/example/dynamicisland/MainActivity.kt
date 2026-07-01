@@ -1,8 +1,10 @@
 package com.example.dynamicisland
 
 import android.app.Activity
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.graphics.Color
 import android.os.Bundle
 import android.widget.LinearLayout
@@ -11,9 +13,16 @@ import android.widget.TextView
 
 class MainActivity : Activity() {
 
-    // यह डमी फ़ंक्शन है। मॉड्यूल एक्टिव होने पर Xposed इसे हुक करके 'true' कर देगा।
-    private fun isModuleActive(): Boolean {
-        return false
+    private lateinit var statusText: TextView
+
+    // SystemUI से आने वाला "हाँ, मैं एक्टिव हूँ" रिप्लाई सुनने के लिए रिसीवर
+    private val statusReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (intent.action == "com.example.dynamicisland.REPLY_STATUS") {
+                statusText.text = "● Module Status: ACTIVE"
+                statusText.setTextColor(Color.GREEN)
+            }
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -21,13 +30,11 @@ class MainActivity : Activity() {
 
         val sharedPref = getSharedPreferences("dynamic_island_prefs", Context.MODE_PRIVATE)
 
-        // मुख्य लेआउट
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(60, 60, 60, 60)
         }
 
-        // 1. शीर्षक
         val title = TextView(this).apply {
             text = "Dynamic Island Calibrator"
             textSize = 22f
@@ -35,21 +42,16 @@ class MainActivity : Activity() {
         }
         layout.addView(title)
 
-        // 2. मॉड्यूल एक्टिव/इनएक्टिव स्टेटस टेक्स्ट (Live Status)
-        val statusText = TextView(this).apply {
-            if (isModuleActive()) {
-                text = "● Module Status: ACTIVE"
-                setTextColor(Color.GREEN)
-            } else {
-                text = "● Module Status: INACTIVE (Enable in LSPosed & Reboot)"
-                setTextColor(Color.RED)
-            }
+        // स्टेटस टेक्स्ट इंडिकेटर (शुरुआत में लाल रंग में INACTIVE रहेगा)
+        statusText = TextView(this).apply {
+            text = "● Module Status: INACTIVE (Enable in LSPosed & Reboot)"
+            setTextColor(Color.RED)
             textSize = 14f
             setPadding(0, 0, 0, 80)
         }
         layout.addView(statusText)
 
-        // 3. वर्टिकल पोजीशन स्लाइडर
+        // वर्टिकल पोजीशन स्लाइडर
         val currentTopMargin = sharedPref.getInt("topMargin", 8)
         val topMarginLabel = TextView(this).apply {
             text = "Vertical Position (ऊंचाई): ${currentTopMargin}dp"
@@ -72,7 +74,7 @@ class MainActivity : Activity() {
         }
         layout.addView(topMarginSeekBar)
 
-        // 4. चौड़ाई स्लाइडर
+        // चौड़ाई स्लाइडर
         val currentWidth = sharedPref.getInt("width", 40)
         val widthLabel = TextView(this).apply {
             text = "Punch-Hole Width (चौड़ाई): ${currentWidth}dp"
@@ -98,6 +100,24 @@ class MainActivity : Activity() {
         layout.addView(widthSeekBar)
 
         setContentView(layout)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // रिप्लाई रिसीवर रजिस्टर करें
+        val filter = IntentFilter("com.example.dynamicisland.REPLY_STATUS")
+        registerReceiver(statusReceiver, filter, 2) // RECEIVER_EXPORTED
+
+        // SystemUI को पूछने के लिए ब्रॉडकास्ट भेजें कि क्या मॉड्यूल चल रहा है
+        val intent = Intent("com.example.dynamicisland.QUERY_STATUS")
+        sendBroadcast(intent)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        try {
+            unregisterReceiver(statusReceiver)
+        } catch (e: Exception) {}
     }
 
     private fun sendLiveUpdate(topMargin: Int, width: Int) {
