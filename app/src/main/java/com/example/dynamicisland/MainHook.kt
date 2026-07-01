@@ -15,7 +15,7 @@ import android.os.BatteryManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
-import android.os.VibrationEffect // 🟢 महत्वपूर्ण इम्पोर्ट सुनिश्चित किया गया!
+import android.os.VibrationEffect
 import android.os.Vibrator
 import android.util.TypedValue
 import android.view.Gravity
@@ -29,12 +29,11 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import de.robv.android.xposed.IXposedHookLoadPackage
 import de.robv.android.xposed.XC_MethodHook
-import de.robv.android.xposed.XC_MethodHook.MethodHookParam // 🟢 सुरक्षित क्लास इम्पोर्ट
+import de.robv.android.xposed.XC_MethodHook.MethodHookParam
 import de.robv.android.xposed.XposedBridge
 import de.robv.android.xposed.XposedHelpers
 import de.robv.android.xposed.XSharedPreferences
 import de.robv.android.xposed.callbacks.XC_LoadPackage
-import java.util.Random
 
 class MainHook : IXposedHookLoadPackage {
 
@@ -183,8 +182,8 @@ class MainHook : IXposedHookLoadPackage {
                 setCornerRadius(dpToPx(context, configuredRadius).toFloat())
             }
             elevation = dpToPx(context, 6).toFloat()
-            isClickable = true
-            isFocusable = true
+            setClickable(true)
+            setFocusable(true)
         }
 
         islandText = TextView(context).apply {
@@ -321,14 +320,14 @@ class MainHook : IXposedHookLoadPackage {
 
     private fun startEqualizerWaveAnimation(context: Context) {
         visualizerLayout?.alpha = 1f
-        val random = Random()
         
         waveRunnable = object : Runnable {
             override fun run() {
                 visualizerLayout?.let { layout ->
                     for (i in 0 until layout.childCount) {
                         val bar = layout.getChildAt(i)
-                        val newHeight = dpToPx(context, random.nextInt(20) + 5)
+                        // 🟢 कोटलिन-नेटिव कंपाइलर-सेफ Random का उपयोग (RANDOM CONSTRUCTOR COLLISION FIX!)
+                        val newHeight = dpToPx(context, kotlin.random.Random.nextInt(5, 25))
                         bar.layoutParams = (bar.layoutParams as LinearLayout.LayoutParams).apply {
                             height = newHeight
                         }
