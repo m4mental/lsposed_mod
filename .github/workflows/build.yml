@@ -1,4 +1,4 @@
-name: Build LSPosed Module (No Wrapper)
+name: Build LSPosed Module
 
 on:
   push:
@@ -21,15 +21,23 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    # GitHub Actions में सीधे बिना Wrapper के निर्दिष्ट वर्शन का Gradle सेटअप करें
+    # पहले क्लाउड पर निर्दिष्ट वर्शन का Gradle सेटअप करें
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v4
       with:
         gradle-version: '8.5'
 
-    # सीधे ग्लोबल 'gradle' कमांड चलाएं, './gradlew' की आवश्यकता नहीं है
+    # यह कमांड gradlew और gradle-wrapper.jar फाइलों को खुद-ब-खुद जेनरेट कर देगी
+    - name: Generate Gradle Wrapper
+      run: gradle wrapper
+
+    # जेनरेट की गई gradlew को रन करने की परमिशन दें
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    # अब ./gradlew कमांड बिना किसी एरर के काम करेगी
     - name: Build with Gradle
-      run: gradle assembleRelease
+      run: ./gradlew assembleRelease
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
