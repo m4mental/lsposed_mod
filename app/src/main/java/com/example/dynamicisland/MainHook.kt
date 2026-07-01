@@ -30,55 +30,75 @@ class MainHook : IXposedHookLoadPackage {
     private var islandText: TextView? = null
     private var isExpanded = false
 
-    // लाइव चेंज होने वाले वेरिएबल्स
     private var configuredTopMargin = 8
     private var configuredWidth = 40
 
     override fun handleLoadPackage(lpparam: LoadPackageParam) {
-        if (lpparam.packageName != "com.android.systemui") return
-
-        try {
-            XposedBridge.log("Dynamic Island: Adjustable module loading...")
-
-            XposedHelpers.findAndHookMethod(
-                "com.android.systemui.SystemUIApplication",
-                lpparam.classLoader,
-                "onCreate",
-                object : XC_MethodHook() {
-                    override fun afterHookedMethod(param: MethodHookParam) {
-                        XposedBridge.log("Dynamic Island: SystemUIApplication loaded successfully.")
+        
+        // 1. यदि हमारा खुद का कैलिब्रेशन ऐप लोड हो रहा है, तो active status को 'true' पर हुक करें
+        if (lpparam.packageName == "com.example.dynamicisland") {
+            try {
+                XposedHelpers.findAndHookMethod(
+                    "com.example.dynamicisland.MainActivity",
+                    lpparam.classLoader,
+                    "isModuleActive",
+                    object : XC_MethodHook() {
+                        override fun beforeHookedMethod(param: MethodHookParam) {
+                            param.result = true // बलपूर्वक हमेशा 'true' लौटाएं
+                        }
                     }
-                }
-            )
+                )
+                XposedBridge.log("Dynamic Island: MainActivity successfully hooked for Active Status.")
+            } catch (e: Throwable) {
+                XposedBridge.log("Dynamic Island: Failed to hook MainActivity status - " + e.message)
+            }
+            return
+        }
 
-            XposedHelpers.findAndHookMethod(
-                "com.android.systemui.statusbar.phone.PhoneStatusBarView",
-                lpparam.classLoader,
-                "onFinishInflate",
-                object : XC_MethodHook() {
-                    override fun afterHookedMethod(param: MethodHookParam) {
-                        val statusBarView = param.thisObject as ViewGroup
-                        val context = statusBarView.context
+        // 2. यदि System UI लोड हो रहा है
+        if (lpparam.packageName == "com.android.systemui") {
+            try {
+                XposedBridge.log("Dynamic Island: Adjustable module loading...")
 
-                        Handler(Looper.getMainLooper()).post {
-                            try {
-                                loadSavedSettings(context)
-                                createDynamicIsland(context, statusBarView)
-                                registerSystemEvents(context)
-                                registerLiveSettingsReceiver(context)
-                            } catch (e: Exception) {
-                                XposedBridge.log("Dynamic Island: Adjustable creation failed - " + e.message)
+                XposedHelpers.findAndHookMethod(
+                    "com.android.systemui.SystemUIApplication",
+                    lpparam.classLoader,
+                    "onCreate",
+                    object : XC_MethodHook() {
+                        override fun afterHookedMethod(param: MethodHookParam) {
+                            XposedBridge.log("Dynamic Island: SystemUIApplication loaded successfully.")
+                        }
+                    }
+                )
+
+                XposedHelpers.findAndHookMethod(
+                    "com.android.systemui.statusbar.phone.PhoneStatusBarView",
+                    lpparam.classLoader,
+                    "onFinishInflate",
+                    object : XC_MethodHook() {
+                        override fun afterHookedMethod(param: MethodHookParam) {
+                            val statusBarView = param.thisObject as ViewGroup
+                            val context = statusBarView.context
+
+                            Handler(Looper.getMainLooper()).post {
+                                try {
+                                    loadSavedSettings(context)
+                                    createDynamicIsland(context, statusBarView)
+                                    registerSystemEvents(context)
+                                    registerLiveSettingsReceiver(context)
+                                } catch (e: Exception) {
+                                    XposedBridge.log("Dynamic Island: Adjustable creation failed - " + e.message)
+                                }
                             }
                         }
                     }
-                }
-            )
-        } catch (e: Throwable) {
-            XposedBridge.log("Dynamic Island: Setup error - " + e.message)
+                )
+            } catch (e: Throwable) {
+                XposedBridge.log("Dynamic Island: Setup error - " + e.message)
+            }
         }
     }
 
-    // शुरुआत में शेयर्ड प्रेफरेंसेस से डेटा लोड करना
     private fun loadSavedSettings(context: Context) {
         val pref = XSharedPreferences("com.example.dynamicisland", "dynamic_island_prefs")
         pref.reload()
@@ -112,9 +132,8 @@ class MainHook : IXposedHookLoadPackage {
         )
         islandView?.addView(islandText, textParams)
 
-        // कॉन्फ़िगर की गई सेटिंग्स के अनुसार आकार
         val currentSizeWidth = dpToPx(context, configuredWidth)
-        val currentSizeHeight = dpToPx(context, 40) // कैमरा गोलाई ऊँचाई
+        val currentSizeHeight = dpToPx(context, 40)
         
         val parentParams = FrameLayout.LayoutParams(currentSizeWidth, currentSizeHeight).apply {
             gravity = Gravity.CENTER_HORIZONTAL or Gravity.TOP
@@ -124,10 +143,9 @@ class MainHook : IXposedHookLoadPackage {
         parent.addView(islandView, parentParams)
     }
 
-    // ऐप से लाइव बदलाव सुनने के लिए रिसीवर (बिना रीबूट एडजस्टमेंट)
     private fun registerLiveSettingsReceiver(context: Context) {
         val filter = IntentFilter("com.example.dynamicisland.UPDATE_SETTINGS")
-        val flagExported = 2 // Context.RECEIVER_EXPORTED (Android 13+ / 16 के लिए ज़रूरी)
+        val flagExported = 2 // Context.RECEIVER_EXPORTED
 
         context.registerReceiver(object : BroadcastReceiver() {
             override fun onReceive(ctx: Context, intent: Intent) {
@@ -137,31 +155,19 @@ class MainHook : IXposedHookLoadPackage {
                 configuredTopMargin = newTopMargin
                 configuredWidth = newWidth
 
-                // बिना रीबूट तुरंत यूआई अपडेट करें
                 islandView?.let { view ->
                     val params = view.layoutParams as FrameLayout.LayoutParams
                     params.topMargin = dpToPx(ctx, newTopMargin)
                     params.width = dpToPx(ctx, newWidth)
-                    params.height = dpToPx(ctx, 40) // कैमरे की ऊंचाई
                     view.layoutParams = params
                     view.requestLayout()
-                    XposedBridge.log("Dynamic Island Live Adjust: Margin=$newTopMargin, Width=$newWidth")
                 }
             }
         }, filter, flagExported)
     }
 
     private fun registerSystemEvents(context: Context) {
-        val filter = IntentFilter().apply {
-            addAction(Intent.ACTION_POWER_CONNECTED)
-            addAction(Intent.ACTION_POWER_DISCONNECTED)
-        }
-
-        context.registerReceiver(object : BroadcastReceiver() {
-            override fun onReceive(ctx: Context, intent: Intent) {
-                // एनीमेशन ट्रिगर... (समान चार्जिंग डिटेक्ट लॉजिक)
-            }
-        }, filter)
+        // ... (charging events log if needed)
     }
 
     private fun dpToPx(context: Context, dp: Int): Int {
