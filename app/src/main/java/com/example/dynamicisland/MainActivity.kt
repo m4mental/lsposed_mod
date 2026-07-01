@@ -11,7 +11,7 @@ import android.os.Build
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
-import android.view.ViewGroup
+import android.view.ViewGroup.LayoutParams // 🟢 क्लास टकराव रोकने के लिए डायरेक्ट इम्पोर्ट
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.SeekBar
@@ -22,7 +22,6 @@ class MainActivity : Activity() {
     private lateinit var statusText: TextView
     private lateinit var contentFrame: LinearLayout
     
-    // यह डमी फ़ंक्शन है। मॉड्यूल एक्टिव होने पर Xposed इसे हुक करके 'true' कर देगा।
     private fun isXposedActive(): Boolean {
         return false
     }
@@ -55,7 +54,6 @@ class MainActivity : Activity() {
         mainLayout.addView(title)
 
         statusText = TextView(this).apply {
-            // डमी फ़ंक्शन का उपयोग करके जांचें
             if (isXposedActive()) {
                 text = "● Module Status: ACTIVE"
                 setTextColor(Color.GREEN)
@@ -85,10 +83,11 @@ class MainActivity : Activity() {
             setTextColor(Color.GRAY)
         }
 
-        val paramCalib = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+        // 🟢 LayoutParams क्लास डायरेक्ट अलाइनमेंट
+        val paramCalib = LinearLayout.LayoutParams(0, LayoutParams.WRAP_CONTENT).apply {
             weight = 1f
         }
-        val paramSim = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+        val paramSim = LinearLayout.LayoutParams(0, LayoutParams.WRAP_CONTENT).apply {
             weight = 1f
         }
 
@@ -183,7 +182,7 @@ class MainActivity : Activity() {
                 }
                 sendBroadcast(intent)
             }
-            val params = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            val params = LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
                 topMargin = 10
                 bottomMargin = 15
             }
