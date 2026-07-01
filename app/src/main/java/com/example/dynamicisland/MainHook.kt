@@ -31,9 +31,11 @@ import de.robv.android.xposed.IXposedHookLoadPackage
 import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XC_MethodHook.MethodHookParam
 import de.robv.android.xposed.XposedBridge
+import de.robv.android.xposed.XHelpers
 import de.robv.android.xposed.XposedHelpers
 import de.robv.android.xposed.XSharedPreferences
 import de.robv.android.xposed.callbacks.XC_LoadPackage
+import java.util.Random
 
 class MainHook : IXposedHookLoadPackage {
 
@@ -190,7 +192,7 @@ class MainHook : IXposedHookLoadPackage {
             setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
             setGravity(Gravity.CENTER_VERTICAL or Gravity.LEFT)
-            alpha = 0f
+            setAlpha(0f)
             setPadding(dpToPx(context, 15), 0, dpToPx(context, 15), 0)
         }
         islandView?.addView(islandText)
@@ -198,7 +200,7 @@ class MainHook : IXposedHookLoadPackage {
         visualizerLayout = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            alpha = 0f
+            setAlpha(0f)
             setPadding(0, 0, dpToPx(context, 15), 0)
             
             for (i in 0..3) {
@@ -326,7 +328,6 @@ class MainHook : IXposedHookLoadPackage {
                 visualizerLayout?.let { layout ->
                     for (i in 0 until layout.childCount) {
                         val bar = layout.getChildAt(i)
-                        // 🟢 कोटलिन-नेटिव कंपाइलर-सेफ Random का उपयोग (RANDOM CONSTRUCTOR COLLISION FIX!)
                         val newHeight = dpToPx(context, kotlin.random.Random.nextInt(5, 25))
                         bar.layoutParams = (bar.layoutParams as LinearLayout.LayoutParams).apply {
                             height = newHeight
