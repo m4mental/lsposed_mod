@@ -113,7 +113,7 @@ class MainHook : IXposedHookLoadPackage {
         islandView = FrameLayout(context).apply {
             background = GradientDrawable().apply {
                 setColor(Color.BLACK)
-                cornerRadius = dpToPx(context, configuredRadius).toFloat()
+                setCornerRadius(dpToPx(context, configuredRadius).toFloat()) // 🟢 सुरक्षित जावा सेटर
             }
             elevation = dpToPx(context, 6).toFloat()
             isClickable = true
@@ -122,9 +122,8 @@ class MainHook : IXposedHookLoadPackage {
 
         islandText = TextView(context).apply {
             setTextColor(Color.WHITE)
-            textSize = 12f
-            gravity = Gravity.CENTER_VERTICAL or Gravity.LEFT
-            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f) // 🟢 सुरक्षित टेक्स्ट साइज़
+            setGravity(Gravity.CENTER_VERTICAL or Gravity.LEFT) // 🟢 सुरक्षित जावा अलाइनमेंट
             alpha = 0f
             setPadding(dpToPx(context, 15), 0, dpToPx(context, 15), 0)
         }
@@ -140,16 +139,18 @@ class MainHook : IXposedHookLoadPackage {
                 val bar = View(context).apply {
                     setBackgroundColor(Color.parseColor("#00E676"))
                 }
+                // 🟢 सुरक्षित मार्जिन प्रॉपर्टीज़ (कोई setMargins ओवरलोड रिज़ॉल्यूशन टकराव नहीं)
                 val params = LinearLayout.LayoutParams(dpToPx(context, 3), dpToPx(context, 5)).apply {
-                    setMargins(dpToPx(context, 2), 0, dpToPx(context, 2), 0)
+                    leftMargin = dpToPx(context, 2)
+                    rightMargin = dpToPx(context, 2)
                 }
                 addView(bar, params)
             }
         }
         
         val visualizerParams = FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.WRAP_CONTENT,
-            FrameLayout.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.MATCH_PARENT,
             Gravity.RIGHT or Gravity.CENTER_VERTICAL
         )
         islandView?.addView(visualizerLayout, visualizerParams)
@@ -323,9 +324,8 @@ class MainHook : IXposedHookLoadPackage {
                 height = currentH
             }
             
-            (island.background as? GradientDrawable)?.apply {
-                cornerRadius = dpToPx(context, configuredRadius).toFloat()
-            }
+            // 🟢 सुरक्षित जावा सेटर (कम्पाइलर कन्फ्यूजन को पूरी तरह रोकता है)
+            (island.background as? GradientDrawable)?.setCornerRadius(dpToPx(context, configuredRadius).toFloat())
             
             island.requestLayout()
             text.alpha = textAlpha * fraction
