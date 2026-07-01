@@ -1,11 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- ब्राइटनेस और वॉल्यूम एडजस्ट करने के लिए आवश्यक अनुमतियां -->
+    <uses-permission android:name="android.permission.WRITE_SETTINGS" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+
     <application
         android:allowBackup="true"
         android:label="Dynamic Island Calibrator"
         android:theme="@android:style/Theme.DeviceDefault">
         
+        <!-- Nothing Phone (2a) Glyph SDK Compatibility Key -->
+        <meta-data android:name="NothingKey" android:value="test"/>
+
+        <!-- लॉन्चर ऐप एक्टिविटी -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -20,14 +28,13 @@
             android:name="xposedmodule"
             android:value="true" />
         
-        <!-- अब आपको केवल System UI को हुक करने की आवश्यकता है, खुद के ऐप को नहीं! -->
         <meta-data
             android:name="xposedscope"
             android:value="com.android.systemui" />
         
         <meta-data
             android:name="xposeddescription"
-            android:value="Adjustable Dynamic Island Hook for Nothing Phone 2a" />
+            android:value="Next-Gen Dynamic Island with Nothing OS Glyph Sync" />
         
         <meta-data
             android:name="xposedminversion"
