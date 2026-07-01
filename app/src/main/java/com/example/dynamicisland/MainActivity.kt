@@ -11,7 +11,7 @@ import android.os.Build
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
-import android.view.ViewGroup.LayoutParams // 🟢 क्लास टकराव रोकने के लिए डायरेक्ट इम्पोर्ट
+import android.view.ViewGroup
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.SeekBar
@@ -26,9 +26,11 @@ class MainActivity : Activity() {
         return false
     }
 
+    // 🟢 प्लेटफ़ॉर्म नल-सुरक्षा के साथ ब्रॉडकास्ट रिसीवर
     private val statusReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            if (intent.action == "com.example.dynamicisland.REPLY_STATUS") {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            val i = intent ?: return
+            if (i.action == "com.example.dynamicisland.REPLY_STATUS") {
                 statusText.text = "● Module Status: ACTIVE"
                 statusText.setTextColor(Color.GREEN)
             }
@@ -83,11 +85,11 @@ class MainActivity : Activity() {
             setTextColor(Color.GRAY)
         }
 
-        // 🟢 LayoutParams क्लास डायरेक्ट अलाइनमेंट
-        val paramCalib = LinearLayout.LayoutParams(0, LayoutParams.WRAP_CONTENT).apply {
+        // 🟢 प्रत्यक्ष रूप से पूर्ण क्लास पाथ का उपयोग करके लेआउट संघर्ष को रोकें
+        val paramCalib = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
             weight = 1f
         }
-        val paramSim = LinearLayout.LayoutParams(0, LayoutParams.WRAP_CONTENT).apply {
+        val paramSim = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
             weight = 1f
         }
 
@@ -182,7 +184,8 @@ class MainActivity : Activity() {
                 }
                 sendBroadcast(intent)
             }
-            val params = LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+            // 🟢 पूर्ण क्लास पाथ का उपयोग
+            val params = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
                 topMargin = 10
                 bottomMargin = 15
             }
