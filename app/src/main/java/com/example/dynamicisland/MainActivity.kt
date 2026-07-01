@@ -22,6 +22,7 @@ class MainActivity : Activity() {
     private lateinit var statusText: TextView
     private lateinit var contentFrame: LinearLayout
     
+    // यह डमी फ़ंक्शन है। मॉड्यूल एक्टिव होने पर Xposed इसे हुक करके 'true' कर देगा।
     private fun isXposedActive(): Boolean {
         return false
     }
@@ -55,6 +56,7 @@ class MainActivity : Activity() {
         mainLayout.addView(title)
 
         statusText = TextView(this).apply {
+            // डमी फ़ंक्शन का उपयोग करके जांचें
             if (isXposedActive()) {
                 text = "● Module Status: ACTIVE"
                 setTextColor(Color.GREEN)
@@ -84,6 +86,7 @@ class MainActivity : Activity() {
             setTextColor(Color.GRAY)
         }
 
+        // डायरेक्ट 'ViewGroup.LayoutParams' का उपयोग (क्लास रिज़ॉल्यूशन टकराव से बचने के लिए)
         val paramCalib = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
             weight = 1f
         }
@@ -136,8 +139,8 @@ class MainActivity : Activity() {
             contentFrame.addView(labelView)
 
             val seekBar = SeekBar(this).apply {
-                setMax(maxVal - minVal)
-                setProgress(currentVal - minVal)
+                max = maxVal - minVal
+                progress = currentVal - minVal
                 setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                     override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {
                         val realValue = progress + minVal
@@ -200,7 +203,11 @@ class MainActivity : Activity() {
         super.onResume()
         val filter = IntentFilter("com.example.dynamicisland.REPLY_STATUS")
         
-        safeRegisterReceiver(this, statusReceiver, filter)
+        if (Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(statusReceiver, filter, Context.RECEIVER_EXPORTED)
+        } else {
+            registerReceiver(statusReceiver, filter)
+        }
         
         sendBroadcast(Intent("com.example.dynamicisland.QUERY_STATUS"))
     }
@@ -221,23 +228,5 @@ class MainActivity : Activity() {
             putExtra("radius", sharedPref.getInt("radius", 20))
         }
         sendBroadcast(intent)
-    }
-
-    private fun safeRegisterReceiver(context: Context, receiver: BroadcastReceiver, filter: IntentFilter) {
-        try {
-            if (Build.VERSION.SDK_INT >= 33) {
-                val method = Context::class.java.getMethod(
-                    "registerReceiver",
-                    BroadcastReceiver::class.java,
-                    IntentFilter::class.java,
-                    Int::class.java
-                )
-                method.invoke(context, receiver, filter, 2)
-            } else {
-                context.registerReceiver(receiver, filter)
-            }
-        } catch (e: Throwable) {
-            context.registerReceiver(receiver, filter)
-        }
     }
 }
