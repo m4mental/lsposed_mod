@@ -26,7 +26,6 @@ class MainActivity : Activity() {
         return false
     }
 
-    // 🟢 प्लेटफ़ॉर्म नल-सुरक्षा के साथ ब्रॉडकास्ट रिसीवर
     private val statusReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             val i = intent ?: return
@@ -85,7 +84,7 @@ class MainActivity : Activity() {
             setTextColor(Color.GRAY)
         }
 
-        // 🟢 प्रत्यक्ष रूप से पूर्ण क्लास पाथ का उपयोग करके लेआउट संघर्ष को रोकें
+        // 🟢 Layout-clash से बचने के लिए सीधा ViewGroup.LayoutParams उपयोग करें
         val paramCalib = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
             weight = 1f
         }
@@ -184,7 +183,6 @@ class MainActivity : Activity() {
                 }
                 sendBroadcast(intent)
             }
-            // 🟢 पूर्ण क्लास पाथ का उपयोग
             val params = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
                 topMargin = 10
                 bottomMargin = 15
