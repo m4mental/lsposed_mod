@@ -34,42 +34,10 @@ class MainHook : IXposedHookLoadPackage {
     private var configuredWidth = 40
 
     override fun handleLoadPackage(lpparam: LoadPackageParam) {
-        
-        // 1. यदि हमारा खुद का कैलिब्रेशन ऐप लोड हो रहा है, तो active status को 'true' पर हुक करें
-        if (lpparam.packageName == "com.example.dynamicisland") {
-            try {
-                XposedHelpers.findAndHookMethod(
-                    "com.example.dynamicisland.MainActivity",
-                    lpparam.classLoader,
-                    "isModuleActive",
-                    object : XC_MethodHook() {
-                        override fun beforeHookedMethod(param: MethodHookParam) {
-                            param.result = true // बलपूर्वक हमेशा 'true' लौटाएं
-                        }
-                    }
-                )
-                XposedBridge.log("Dynamic Island: MainActivity successfully hooked for Active Status.")
-            } catch (e: Throwable) {
-                XposedBridge.log("Dynamic Island: Failed to hook MainActivity status - " + e.message)
-            }
-            return
-        }
-
-        // 2. यदि System UI लोड हो रहा है
+        // हम केवल SystemUI को हुक कर रहे हैं, सेल्फ-हुकिंग को पूरी तरह हटा दिया गया है
         if (lpparam.packageName == "com.android.systemui") {
             try {
-                XposedBridge.log("Dynamic Island: Adjustable module loading...")
-
-                XposedHelpers.findAndHookMethod(
-                    "com.android.systemui.SystemUIApplication",
-                    lpparam.classLoader,
-                    "onCreate",
-                    object : XC_MethodHook() {
-                        override fun afterHookedMethod(param: MethodHookParam) {
-                            XposedBridge.log("Dynamic Island: SystemUIApplication loaded successfully.")
-                        }
-                    }
-                )
+                XposedBridge.log("Dynamic Island: Loading module into System UI...")
 
                 XposedHelpers.findAndHookMethod(
                     "com.android.systemui.statusbar.phone.PhoneStatusBarView",
@@ -87,14 +55,14 @@ class MainHook : IXposedHookLoadPackage {
                                     registerSystemEvents(context)
                                     registerLiveSettingsReceiver(context)
                                 } catch (e: Exception) {
-                                    XposedBridge.log("Dynamic Island: Adjustable creation failed - " + e.message)
+                                    XposedBridge.log("Dynamic Island: Initialization failed - " + e.message)
                                 }
                             }
                         }
                     }
                 )
             } catch (e: Throwable) {
-                XposedBridge.log("Dynamic Island: Setup error - " + e.message)
+                XposedBridge.log("Dynamic Island: Hook setup error - " + e.message)
             }
         }
     }
@@ -144,30 +112,43 @@ class MainHook : IXposedHookLoadPackage {
     }
 
     private fun registerLiveSettingsReceiver(context: Context) {
-        val filter = IntentFilter("com.example.dynamicisland.UPDATE_SETTINGS")
+        val filter = IntentFilter().apply {
+            addAction("com.example.dynamicisland.UPDATE_SETTINGS")
+            addAction("com.example.dynamicisland.QUERY_STATUS") // नया स्टेटस क्वेरी एक्शन
+        }
         val flagExported = 2 // Context.RECEIVER_EXPORTED
 
         context.registerReceiver(object : BroadcastReceiver() {
             override fun onReceive(ctx: Context, intent: Intent) {
-                val newTopMargin = intent.getIntExtra("topMargin", 8)
-                val newWidth = intent.getIntExtra("width", 40)
+                when (intent.action) {
+                    "com.example.dynamicisland.UPDATE_SETTINGS" -> {
+                        val newTopMargin = intent.getIntExtra("topMargin", 8)
+                        val newWidth = intent.getIntExtra("width", 40)
 
-                configuredTopMargin = newTopMargin
-                configuredWidth = newWidth
+                        configuredTopMargin = newTopMargin
+                        configuredWidth = newWidth
 
-                islandView?.let { view ->
-                    val params = view.layoutParams as FrameLayout.LayoutParams
-                    params.topMargin = dpToPx(ctx, newTopMargin)
-                    params.width = dpToPx(ctx, newWidth)
-                    view.layoutParams = params
-                    view.requestLayout()
+                        islandView?.let { view ->
+                            val params = view.layoutParams as FrameLayout.LayoutParams
+                            params.topMargin = dpToPx(ctx, newTopMargin)
+                            params.width = dpToPx(ctx, newWidth)
+                            view.layoutParams = params
+                            view.requestLayout()
+                        }
+                    }
+                    "com.example.dynamicisland.QUERY_STATUS" -> {
+                        // जब कैलिब्रेशन ऐप पूछेगा, तो SystemUI उसे रिप्लाई भेजेगा
+                        val replyIntent = Intent("com.example.dynamicisland.REPLY_STATUS")
+                        ctx.sendBroadcast(replyIntent)
+                        XposedBridge.log("Dynamic Island: Active Status Replied successfully.")
+                    }
                 }
             }
         }, filter, flagExported)
     }
 
     private fun registerSystemEvents(context: Context) {
-        // ... (charging events log if needed)
+        // ... (charging animations if needed)
     }
 
     private fun dpToPx(context: Context, dp: Int): Int {
