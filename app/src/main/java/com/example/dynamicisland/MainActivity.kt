@@ -7,10 +7,11 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.Color
 import android.graphics.Typeface
-import android.os.Build
+import android.os.Build // 🟢 महत्वपूर्ण इम्पोर्ट जोड़ा गया!
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup // 🟢 WRAP_CONTENT के लिए सुरक्षित इम्पोर्ट
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.SeekBar
@@ -75,8 +76,8 @@ class MainActivity : Activity() {
             setTextColor(Color.GRAY)
         }
 
-        tabContainer.addView(btnTabCalibration, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-        tabContainer.addView(btnTabSimulator, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        tabContainer.addView(btnTabCalibration, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        tabContainer.addView(btnTabSimulator, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         mainLayout.addView(tabContainer)
 
         contentFrame = LinearLayout(this).apply {
@@ -183,7 +184,7 @@ class MainActivity : Activity() {
         super.onResume()
         val filter = IntentFilter("com.example.dynamicisland.REPLY_STATUS")
         
-        // Android 13+ सुरक्षा जांच के साथ ब्रॉडकास्ट रजिस्टर करें
+        // Build इम्पोर्ट के साथ सुरक्षित चेक
         if (Build.VERSION.SDK_INT >= 33) {
             registerReceiver(statusReceiver, filter, Context.RECEIVER_EXPORTED)
         } else {
