@@ -21,12 +21,15 @@ class MainActivity : Activity() {
 
     private lateinit var statusText: TextView
     private lateinit var contentFrame: LinearLayout
-    private var isModuleActive = false
+    
+    // यह डमी फ़ंक्शन है। मॉड्यूल एक्टिव होने पर Xposed इसे हुक करके 'true' कर देगा।
+    private fun isXposedActive(): Boolean {
+        return false
+    }
 
     private val statusReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             if (intent.action == "com.example.dynamicisland.REPLY_STATUS") {
-                isModuleActive = true
                 statusText.text = "● Module Status: ACTIVE"
                 statusText.setTextColor(Color.GREEN)
             }
@@ -52,8 +55,14 @@ class MainActivity : Activity() {
         mainLayout.addView(title)
 
         statusText = TextView(this).apply {
-            text = "● Module Status: INACTIVE (Enable in LSPosed & Reboot)"
-            setTextColor(Color.RED)
+            // डमी फ़ंक्शन का उपयोग करके जांचें
+            if (isXposedActive()) {
+                text = "● Module Status: ACTIVE"
+                setTextColor(Color.GREEN)
+            } else {
+                text = "● Module Status: INACTIVE (Enable in LSPosed & Reboot)"
+                setTextColor(Color.RED)
+            }
             textSize = 13f
             setPadding(0, 0, 0, 30)
         }
