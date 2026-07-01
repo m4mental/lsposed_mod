@@ -21,16 +21,13 @@ class MainActivity : Activity() {
 
     private lateinit var statusText: TextView
     private lateinit var contentFrame: LinearLayout
-    
-    private fun isXposedActive(): Boolean {
-        return false
-    }
+    private var isModuleActive = false
 
-    // 🟢 प्लेटफ़ॉर्म नल-सुरक्षा के साथ ब्रॉडकास्ट रिसीवर
     private val statusReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             val i = intent ?: return
             if (i.action == "com.example.dynamicisland.REPLY_STATUS") {
+                isModuleActive = true
                 statusText.text = "● Module Status: ACTIVE"
                 statusText.setTextColor(Color.GREEN)
             }
@@ -85,7 +82,6 @@ class MainActivity : Activity() {
             setTextColor(Color.GRAY)
         }
 
-        // 🟢 Layout-conflict से बचने के लिए सीधे ViewGroup.LayoutParams का उपयोग करें
         val paramCalib = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
             weight = 1f
         }
@@ -138,8 +134,8 @@ class MainActivity : Activity() {
             contentFrame.addView(labelView)
 
             val seekBar = SeekBar(this).apply {
-                max = maxVal - minVal
-                progress = currentVal - minVal
+                setMax(maxVal - minVal)
+                setProgress(currentVal - minVal)
                 setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                     override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {
                         val realValue = progress + minVal
@@ -184,7 +180,6 @@ class MainActivity : Activity() {
                 }
                 sendBroadcast(intent)
             }
-            // 🟢 पूर्ण क्लास पाथ का उपयोग
             val params = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
                 topMargin = 10
                 bottomMargin = 15
@@ -203,11 +198,7 @@ class MainActivity : Activity() {
         super.onResume()
         val filter = IntentFilter("com.example.dynamicisland.REPLY_STATUS")
         
-        if (Build.VERSION.SDK_INT >= 33) {
-            registerReceiver(statusReceiver, filter, Context.RECEIVER_EXPORTED)
-        } else {
-            registerReceiver(statusReceiver, filter)
-        }
+        safeRegisterReceiver(this, statusReceiver, filter)
         
         sendBroadcast(Intent("com.example.dynamicisland.QUERY_STATUS"))
     }
@@ -228,5 +219,23 @@ class MainActivity : Activity() {
             putExtra("radius", sharedPref.getInt("radius", 20))
         }
         sendBroadcast(intent)
+    }
+
+    private fun safeRegisterReceiver(context: Context, receiver: BroadcastReceiver, filter: IntentFilter) {
+        try {
+            if (Build.VERSION.SDK_INT >= 33) {
+                val method = Context::class.java.getMethod(
+                    "registerReceiver",
+                    BroadcastReceiver::class.java,
+                    IntentFilter::class.java,
+                    Int::class.java
+                )
+                method.invoke(context, receiver, filter, 2)
+            } else {
+                context.registerReceiver(receiver, filter)
+            }
+        } catch (e: Throwable) {
+            context.registerReceiver(receiver, filter)
+        }
     }
 }
