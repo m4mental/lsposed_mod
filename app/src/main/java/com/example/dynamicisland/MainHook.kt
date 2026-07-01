@@ -14,7 +14,6 @@ import android.os.BatteryManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
-import android.os.VibrationEffect
 import android.os.Vibrator
 import android.util.TypedValue
 import android.view.Gravity
@@ -58,7 +57,6 @@ class MainHook : IXposedHookLoadPackage {
                     lpparam.classLoader,
                     "isXposedActive",
                     object : XC_MethodHook() {
-                        // 🟢 कोटलिन-सुरक्षित XC_MethodHook.MethodHookParam डिक्लेरेशन (बग फिक्स!)
                         override fun beforeHookedMethod(param: XC_MethodHook.MethodHookParam?) {
                             val p = param ?: return
                             p.setResult(true)
@@ -73,14 +71,11 @@ class MainHook : IXposedHookLoadPackage {
 
         if (lpparam.packageName == "com.android.systemui") {
             try {
-                XposedBridge.log("Dynamic Island: Loading module into System UI...")
-
                 XposedHelpers.findAndHookMethod(
                     "com.android.systemui.statusbar.phone.PhoneStatusBarView",
                     lpparam.classLoader,
                     "onFinishInflate",
                     object : XC_MethodHook() {
-                        // 🟢 कोटलिन-सुरक्षित XC_MethodHook.MethodHookParam डिक्लेरेशन (बग फिक्स!)
                         override fun afterHookedMethod(param: XC_MethodHook.MethodHookParam?) {
                             val p = param ?: return
                             val statusBarView = p.thisObject as ViewGroup
@@ -153,11 +148,10 @@ class MainHook : IXposedHookLoadPackage {
             }
         }
         
-        val visualizerParams = FrameLayout.LayoutParams(
-            ViewGroup.LayoutParams.WRAP_CONTENT,
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            Gravity.RIGHT or Gravity.CENTER_VERTICAL
-        )
+        // 🟢 कम्पाइलर-सेफ Layout Constant रिज़ॉल्यूशन (-1 यानी MATCH_PARENT, -2 यानी WRAP_CONTENT)
+        val visualizerParams = FrameLayout.LayoutParams(-2, -1).apply {
+            gravity = Gravity.RIGHT or Gravity.CENTER_VERTICAL
+        }
         islandView?.addView(visualizerLayout, visualizerParams)
 
         var startX = 0f
@@ -217,7 +211,7 @@ class MainHook : IXposedHookLoadPackage {
                         }
                     }
                     "com.example.dynamicisland.QUERY_STATUS" -> {
-                        c.sendBroadcast(Intent("com.example.dynamicisland.REPLY_STATUS"))
+                        ctx.sendBroadcast(Intent("com.example.dynamicisland.REPLY_STATUS"))
                     }
                     "com.example.dynamicisland.SIMULATE_STATE" -> {
                         val state = i.getStringExtra("state") ?: "idle"
@@ -228,11 +222,8 @@ class MainHook : IXposedHookLoadPackage {
             }
         }
 
-        if (Build.VERSION.SDK_INT >= 33) {
-            context.registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
-        } else {
-            context.registerReceiver(receiver, filter)
-        }
+        // 🟢 रिफ्लेक्शन आधारित ब्रॉडकास्ट रजिस्टर (कंपाइल टाइम पर SDK अड़चन हमेशा के लिए ख़त्म)
+        safeRegisterReceiver(context, receiver, filter)
     }
 
     private fun handleStateTransition(context: Context, state: String) {
@@ -344,11 +335,32 @@ class MainHook : IXposedHookLoadPackage {
         animator.start()
     }
 
+    // 🟢 100% सेफ वाइब्रेशन (सभी SDK पर कम्पाइल करने योग्य)
     private fun performHapticTick(context: Context) {
         try {
             val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-            vibrator.vibrate(VibrationEffect.createOneShot(15, VibrationEffect.DEFAULT_AMPLITUDE))
+            @Suppress("DEPRECATION")
+            vibrator.vibrate(15) // यह हर एंड्रॉइड एसडीके पर कम्पाइल होता है
         } catch (e: Exception) {}
+    }
+
+    // 🟢 रिफ्लेक्शन आधारित रिसीवर रजिस्ट्रेशन
+    private fun safeRegisterReceiver(context: Context, receiver: BroadcastReceiver, filter: IntentFilter) {
+        try {
+            if (Build.VERSION.SDK_INT >= 33) {
+                val method = Context::class.java.getMethod(
+                    "registerReceiver",
+                    BroadcastReceiver::class.java,
+                    IntentFilter::class.java,
+                    Int::class.javaPrimitiveType
+                )
+                method.invoke(context, receiver, filter, 2) // Context.RECEIVER_EXPORTED का मान 2 है
+            } else {
+                context.registerReceiver(receiver, filter)
+            }
+        } catch (e: Throwable) {
+            XposedBridge.log("Dynamic Island: Safe Receiver Registration failed - " + e.message)
+        }
     }
 
     private fun dpToPx(context: Context, dp: Int): Int {
