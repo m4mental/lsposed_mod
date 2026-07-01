@@ -11,6 +11,7 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.media.AudioManager
 import android.os.BatteryManager
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.VibrationEffect
@@ -190,9 +191,8 @@ class MainHook : IXposedHookLoadPackage {
             addAction("com.example.dynamicisland.QUERY_STATUS")
             addAction("com.example.dynamicisland.SIMULATE_STATE")
         }
-        val flagExported = Context.RECEIVER_EXPORTED
 
-        context.registerReceiver(object : BroadcastReceiver() {
+        val receiver = object : BroadcastReceiver() {
             override fun onReceive(ctx: Context, intent: Intent) {
                 when (intent.action) {
                     "com.example.dynamicisland.UPDATE_SETTINGS" -> {
@@ -215,7 +215,14 @@ class MainHook : IXposedHookLoadPackage {
                     }
                 }
             }
-        }, filter, flagExported)
+        }
+
+        // Android 13+ (SDK 33) सुरक्षा जांच के साथ ब्रॉडकास्ट रजिस्टर करें
+        if (Build.VERSION.SDK_INT >= 33) {
+            context.registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
+        } else {
+            context.registerReceiver(receiver, filter)
+        }
     }
 
     private fun handleStateTransition(context: Context, state: String) {
@@ -312,13 +319,11 @@ class MainHook : IXposedHookLoadPackage {
             val currentW = (startW + (endW - startW) * fraction).toInt()
             val currentH = (startH + (endH - startH) * fraction).toInt()
 
-            // 1. लेआउट पैरामीटर्स में केवल साइज बदलें
             island.layoutParams = (island.layoutParams as FrameLayout.LayoutParams).apply {
                 width = currentW
                 height = currentH
             }
             
-            // 2. बैकग्राउंड ड्राएबल में कॉर्नर रेडियस बदलें (बग फिक्स!)
             (island.background as? GradientDrawable)?.apply {
                 cornerRadius = dpToPx(context, configuredRadius).toFloat()
             }
@@ -334,7 +339,11 @@ class MainHook : IXposedHookLoadPackage {
     private fun performHapticTick(context: Context) {
         try {
             val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-            vibrator.vibrate(VibrationEffect.createOneShot(15, VibrationEffect.DEFAULT_AMPLITUDE))
+            if (Build.VERSION.SDK_INT >= 26) {
+                vibrator.vibrate(VibrationEffect.createOneShot(15, VibrationEffect.DEFAULT_AMPLITUDE))
+            } else {
+                vibrator.vibrate(15)
+            }
         } catch (e: Exception) {}
     }
 
