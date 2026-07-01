@@ -7,7 +7,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.Color
 import android.graphics.Typeface
-import android.os.Build // 🟢 महत्वपूर्ण इम्पोर्ट सुनिश्चित किया गया!
+import android.os.Build
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
@@ -22,6 +22,11 @@ class MainActivity : Activity() {
     private lateinit var statusText: TextView
     private lateinit var contentFrame: LinearLayout
     private var isModuleActive = false
+
+    // 🟢 डमी फ़ंक्शन को 'public' (कोटलिन में डिफ़ॉल्ट) किया गया है ताकि कंपाइलर इसे इनलाइन (Inline) करके मिटा न सके (FIXED!)
+    fun isXposedActive(): Boolean {
+        return false
+    }
 
     private val statusReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -117,10 +122,6 @@ class MainActivity : Activity() {
         }
 
         setContentView(mainLayout)
-    }
-
-    private fun isXposedActive(): Boolean {
-        return false
     }
 
     private fun loadCalibrationSettings() {
