@@ -6,7 +6,11 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.Color
+import android.graphics.Typeface
 import android.os.Bundle
+import android.view.Gravity
+import android.view.View
+import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.SeekBar
 import android.widget.TextView
@@ -14,103 +18,193 @@ import android.widget.TextView
 class MainActivity : Activity() {
 
     private lateinit var statusText: TextView
+    private lateinit var contentFrame: LinearLayout
+    private var isModuleActive = false
 
-    // SystemUI से आने वाला "हाँ, मैं एक्टिव हूँ" रिप्लाई सुनने के लिए रिसीवर
+    // SystemUI से रिप्लाई ब्रॉडकास्ट प्राप्त करने के लिए रिसीवर
     private val statusReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             if (intent.action == "com.example.dynamicisland.REPLY_STATUS") {
+                isModuleActive = true
                 statusText.text = "● Module Status: ACTIVE"
                 statusText.setTextColor(Color.GREEN)
             }
         }
     }
 
+    private fun isModuleActive(): Boolean {
+        return isModuleActive
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val sharedPref = getSharedPreferences("dynamic_island_prefs", Context.MODE_PRIVATE)
-
-        val layout = LinearLayout(this).apply {
+        // मुख्य पैरेंट लेआउट
+        val mainLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(60, 60, 60, 60)
+            setPadding(40, 40, 40, 40)
+            setBackgroundColor(Color.parseColor("#0C0C0C")) // डार्क ब्लैक थीम
         }
 
+        // 1. शीर्ष टाइटल
         val title = TextView(this).apply {
-            text = "Dynamic Island Calibrator"
+            text = "Island Control Panel"
             textSize = 22f
-            setPadding(0, 0, 0, 30)
+            setTextColor(Color.WHITE)
+            typeface = Typeface.create("sans-serif-condensed-light", Typeface.BOLD)
+            setPadding(0, 0, 0, 10)
         }
-        layout.addView(title)
+        mainLayout.addView(title)
 
-        // स्टेटस टेक्स्ट इंडिकेटर (शुरुआत में लाल रंग में INACTIVE रहेगा)
+        // 2. स्टेटस इंडिकेटर
         statusText = TextView(this).apply {
             text = "● Module Status: INACTIVE (Enable in LSPosed & Reboot)"
             setTextColor(Color.RED)
+            textSize = 13f
+            setPadding(0, 0, 0, 30)
+        }
+        mainLayout.addView(statusText)
+
+        // 3. टैब बार (Tab Selector Buttons)
+        val tabContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, 0, 0, 30)
+        }
+
+        val btnTabCalibration = Button(this).apply {
+            text = "Calibration Settings"
+            setBackgroundColor(Color.parseColor("#1E1E1E"))
+            setTextColor(Color.WHITE)
+        }
+
+        val btnTabSimulator = Button(this).apply {
+            text = "Live Simulation"
+            setBackgroundColor(Color.parseColor("#111111"))
+            setTextColor(Color.GRAY)
+        }
+
+        tabContainer.addView(btnTabCalibration, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        tabContainer.addView(btnTabSimulator, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        mainLayout.addView(tabContainer)
+
+        // 4. डायनामिक कंटेनर फ्रेम (जहाँ टैब्स का डेटा लोड होगा)
+        contentFrame = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        mainLayout.addView(contentFrame)
+
+        // डिफ़ॉल्ट रूप से कैलिब्रेशन टैब लोड करें
+        loadCalibrationSettings()
+
+        // टैब स्विचिंग लॉजिक
+        btnTabCalibration.setOnClickListener {
+            btnTabCalibration.setBackgroundColor(Color.parseColor("#1E1E1E"))
+            btnTabCalibration.setTextColor(Color.WHITE)
+            btnTabSimulator.setBackgroundColor(Color.parseColor("#111111"))
+            btnTabSimulator.setTextColor(Color.GRAY)
+            loadCalibrationSettings()
+        }
+
+        btnTabSimulator.setOnClickListener {
+            btnTabSimulator.setBackgroundColor(Color.parseColor("#1E1E1E"))
+            btnTabSimulator.setTextColor(Color.WHITE)
+            btnTabCalibration.setBackgroundColor(Color.parseColor("#111111"))
+            btnTabCalibration.setTextColor(Color.GRAY)
+            loadSimulatorSettings()
+        }
+
+        setContentView(mainLayout)
+    }
+
+    // टैब 1: कैलिब्रेशन और कस्टमाइजेशन सेटिंग्स
+    private fun loadCalibrationSettings() {
+        contentFrame.removeAllViews()
+        val sharedPref = getSharedPreferences("dynamic_island_prefs", Context.MODE_PRIVATE)
+
+        // Slider Helper फ़ंक्शन
+        fun addSlider(label: String, key: String, maxVal: Int, minVal: Int, unit: String) {
+            val currentVal = sharedPref.getInt(key, minVal)
+            val labelView = TextView(this).apply {
+                text = "$label: $currentVal$unit"
+                setTextColor(Color.WHITE)
+                textSize = 15f
+                setPadding(0, 20, 0, 10)
+            }
+            contentFrame.addView(labelView)
+
+            val seekBar = SeekBar(this).apply {
+                max = maxVal - minVal
+                progress = currentVal - minVal
+                setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                    override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {
+                        val realValue = progress + minVal
+                        labelView.text = "$label: $realValue$unit"
+                        sharedPref.edit().putInt(key, realValue).apply()
+                        
+                        // लाइव अपडेट ब्रॉडकास्ट भेजें
+                        sendLiveUpdate()
+                    }
+                    override fun onStartTrackingTouch(sb: SeekBar?) {}
+                    override fun onStopTrackingTouch(sb: SeekBar?) {}
+                })
+            }
+            contentFrame.addView(seekBar)
+        }
+
+        // सभी कस्टमाइजेशन स्लाइडर्स जोड़ें
+        addSlider("Vertical Offset (Y-axis)", "topMargin", 150, 0, "dp")
+        addSlider("Punch-Hole Width", "width", 300, 40, "dp")
+        addSlider("Punch-Hole Height", "height", 100, 20, "dp")
+        addSlider("Corner Radius", "radius", 50, 0, "dp")
+    }
+
+    // टैब 2: लाइव सिमुलेशन प्लेग्राउंड
+    private fun loadSimulatorSettings() {
+        contentFrame.removeAllViews()
+
+        val desc = TextView(this).apply {
+            text = "विभिन्न मोड्स और बैक-पैनल Glyph LEDs को रीयल-टाइम में टेस्ट करें:"
+            setTextColor(Color.LIGHTGRAY)
             textSize = 14f
-            setPadding(0, 0, 0, 80)
+            setPadding(0, 0, 0, 40)
         }
-        layout.addView(statusText)
+        contentFrame.addView(desc)
 
-        // वर्टिकल पोजीशन स्लाइडर
-        val currentTopMargin = sharedPref.getInt("topMargin", 8)
-        val topMarginLabel = TextView(this).apply {
-            text = "Vertical Position (ऊंचाई): ${currentTopMargin}dp"
-            textSize = 16f
-        }
-        layout.addView(topMarginLabel)
-
-        val topMarginSeekBar = SeekBar(this).apply {
-            max = 100
-            progress = currentTopMargin
-            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-                override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {
-                    topMarginLabel.text = "Vertical Position (ऊंचाई): ${progress}dp"
-                    sharedPref.edit().putInt("topMargin", progress).apply()
-                    sendLiveUpdate(progress, sharedPref.getInt("width", 40))
+        // सिमुलेशन बटन बनाने का हेल्पर
+        fun createSimButton(title: String, stateValue: String, color: String) {
+            val btn = Button(this).apply {
+                text = title
+                setBackgroundColor(Color.parseColor(color))
+                setTextColor(Color.WHITE)
+                setPadding(0, 30, 0, 30)
+            }
+            btn.setOnClickListener {
+                val intent = Intent("com.example.dynamicisland.SIMULATE_STATE").apply {
+                    putExtra("state", stateValue)
                 }
-                override fun onStartTrackingTouch(sb: SeekBar?) {}
-                override fun onStopTrackingTouch(sb: SeekBar?) {}
-            })
+                sendBroadcast(intent)
+            }
+            val params = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                setMargins(0, 10, 0, 15)
+            }
+            contentFrame.addView(btn, params)
         }
-        layout.addView(topMarginSeekBar)
 
-        // चौड़ाई स्लाइडर
-        val currentWidth = sharedPref.getInt("width", 40)
-        val widthLabel = TextView(this).apply {
-            text = "Punch-Hole Width (चौड़ाई): ${currentWidth}dp"
-            textSize = 16f
-            setPadding(0, 80, 0, 0)
-        }
-        layout.addView(widthLabel)
-
-        val widthSeekBar = SeekBar(this).apply {
-            max = 150
-            progress = currentWidth
-            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-                override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {
-                    val realWidth = if (progress < 20) 20 else progress
-                    widthLabel.text = "Punch-Hole Width (चौड़ाई): ${realWidth}dp"
-                    sharedPref.edit().putInt("width", realWidth).apply()
-                    sendLiveUpdate(sharedPref.getInt("topMargin", 8), realWidth)
-                }
-                override fun onStartTrackingTouch(sb: SeekBar?) {}
-                override fun onStopTrackingTouch(sb: SeekBar?) {}
-            })
-        }
-        layout.addView(widthSeekBar)
-
-        setContentView(layout)
+        // सभी सिम्युलेटर बटन्स
+        createSimButton("Simulate CHARGING (⚡ 45W Fast Charging)", "charging", "#4CAF50")
+        createSimButton("Simulate MEDIA (Equalizer Visualizer Wave)", "media", "#2196F3")
+        createSimButton("Simulate NOTIFICATION (WhatsApp Rich Widget)", "notification", "#9C27B0")
+        createSimButton("Simulate TIMER (Live Countdown)", "timer", "#FF9800")
+        createSimButton("Simulate IDLE Mode (Hide Behind Camera)", "idle", "#333333")
     }
 
     override fun onResume() {
         super.onResume()
-        // रिप्लाई रिसीवर रजिस्टर करें
         val filter = IntentFilter("com.example.dynamicisland.REPLY_STATUS")
         registerReceiver(statusReceiver, filter, 2) // RECEIVER_EXPORTED
 
-        // SystemUI को पूछने के लिए ब्रॉडकास्ट भेजें कि क्या मॉड्यूल चल रहा है
-        val intent = Intent("com.example.dynamicisland.QUERY_STATUS")
-        sendBroadcast(intent)
+        // स्टेटस रिक्वेस्ट भेजें
+        sendBroadcast(Intent("com.example.dynamicisland.QUERY_STATUS"))
     }
 
     override fun onPause() {
@@ -120,10 +214,13 @@ class MainActivity : Activity() {
         } catch (e: Exception) {}
     }
 
-    private fun sendLiveUpdate(topMargin: Int, width: Int) {
+    private fun sendLiveUpdate() {
+        val sharedPref = getSharedPreferences("dynamic_island_prefs", Context.MODE_PRIVATE)
         val intent = Intent("com.example.dynamicisland.UPDATE_SETTINGS").apply {
-            putExtra("topMargin", topMargin)
-            putExtra("width", width)
+            putExtra("topMargin", sharedPref.getInt("topMargin", 8))
+            putExtra("width", sharedPref.getInt("width", 40))
+            putExtra("height", sharedPref.getInt("height", 40))
+            putExtra("radius", sharedPref.getInt("radius", 20))
         }
         sendBroadcast(intent)
     }
