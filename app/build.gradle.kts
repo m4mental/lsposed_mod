@@ -16,11 +16,11 @@ android {
     targetSdk = 35
     versionCode = 1
     versionName = "1.0"
+
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
   signingConfigs {
-    // 🟢 सुरक्षित रिलीज़ साइनिंग फ़ॉलबैक
     val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
     val keystoreFile = file(keystorePath)
     if (keystoreFile.exists() && System.getenv("STORE_PASSWORD") != null) {
@@ -44,7 +44,6 @@ android {
       isCrunchPngs = false
       isMinifyEnabled = false
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-      // 🟢 केवल मौजूद होने पर ही रिलीज़ साइनिंग का उपयोग करें
       if (signingConfigs.findByName("release") != null) {
         signingConfig = signingConfigs.getByName("release")
       }
@@ -58,17 +57,14 @@ android {
       }
     }
   }
-
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_11
     targetCompatibility = JavaVersion.VERSION_11
   }
-
   buildFeatures {
     compose = true
     buildConfig = true
   }
-
   testOptions { unitTests { isIncludeAndroidResources = true } }
 }
 
@@ -79,7 +75,6 @@ secrets {
 
 dependencies {
   compileOnly(project(":api"))
-
   implementation(platform(libs.androidx.compose.bom))
   implementation(platform(libs.firebase.bom))
   implementation(libs.androidx.activity.compose)
@@ -102,7 +97,6 @@ dependencies {
   implementation(libs.moshi.kotlin)
   implementation(libs.okhttp)
   implementation(libs.retrofit)
-
   testImplementation(libs.androidx.compose.ui.test.junit4)
   testImplementation(libs.androidx.core)
   testImplementation(libs.androidx.junit)
@@ -112,16 +106,13 @@ dependencies {
   testImplementation(libs.roborazzi)
   testImplementation(libs.roborazzi.compose)
   testImplementation(libs.roborazzi.junit.rule)
-
   androidTestImplementation(platform(libs.androidx.compose.bom))
   androidTestImplementation(libs.androidx.compose.ui.test.junit4)
   androidTestImplementation(libs.androidx.espresso.core)
   androidTestImplementation(libs.androidx.junit)
   androidTestImplementation(libs.androidx.runner)
-
   debugImplementation(libs.androidx.compose.ui.test.manifest)
   debugImplementation(libs.androidx.compose.ui.tooling)
-
   "ksp"(libs.androidx.room.compiler)
   "ksp"(libs.moshi.kotlin.codegen)
 }
