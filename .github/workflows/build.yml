@@ -24,22 +24,15 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    # AGP 9.1.1 और Android 16 के लिए संगत Gradle 8.10.2 सेटअप
+    # 1. गिटहब रनर पर सीधे तौर पर नया Gradle 8.10.2 ग्लोबली सेटअप करें
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v4
       with:
         gradle-version: '8.10.2'
 
-    # लोकल ग्रैडल रैपर जनरेट करें
-    - name: Generate Gradle Wrapper
-      run: gradle wrapper --gradle-version 8.10.2
-
-    - name: Grant execute permission for gradlew
-      run: chmod +x gradlew
-
-    # बिना कॉन्फ़िगरेशन कैशिंग टकराव के क्लीन बिल्ड करें
+    # 2. सीधे ग्लोबल 'gradle' कमांड से क्लीन बिल्ड करें (यह चिकन-एंड-एग एरर को 100% रोकेगा)
     - name: Build with Gradle
-      run: ./gradlew :app:assembleDebug --no-configuration-cache --stacktrace --info
+      run: gradle :app:assembleDebug --no-configuration-cache --stacktrace --info
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
