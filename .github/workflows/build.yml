@@ -29,7 +29,7 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: 9.3.1  # <-- यह स्थानीय सफल एनवायरनमेंट से मेल खाता है
+          gradle-version: 9.3.1
 
       - name: Build Debug APK
         run: gradle :app:assembleDebug --no-configuration-cache --stacktrace --info
