@@ -21,23 +21,22 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    # पहले क्लाउड पर निर्दिष्ट वर्शन का Gradle सेटअप करें
+    # क्लाउड पर Gradle सेटअप करें
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v4
       with:
         gradle-version: '8.5'
 
-    # यह कमांड gradlew और gradle-wrapper.jar फाइलों को खुद-ब-खुद जेनरेट कर देगी
+    # Wrapper स्क्रिप्ट्स बनाएं
     - name: Generate Gradle Wrapper
       run: gradle wrapper
 
-    # जेनरेट की गई gradlew को रन करने की परमिशन दें
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
 
-    # अब ./gradlew कमांड बिना किसी एरर के काम करेगी
+    # एरर की सटीक पहचान के लिए स्टैकट्रेस के साथ बिल्ड करें
     - name: Build with Gradle
-      run: ./gradlew assembleRelease
+      run: ./gradlew assembleRelease --stacktrace --info
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
