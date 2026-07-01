@@ -56,10 +56,10 @@ class MainHook : IXposedHookLoadPackage {
                 XposedHelpers.findAndHookMethod(
                     "com.example.dynamicisland.MainActivity",
                     lpparam.classLoader,
-                    "isModuleActive",
+                    "isXposedActive", // 🟢 सही डमी फ़ंक्शन हुक नेम
                     object : XC_MethodHook() {
                         override fun beforeHookedMethod(param: MethodHookParam) {
-                            param.setResult(true) // 🟢 सुरक्षित जावा सेटर विधि (OVERLOAD RESOLUTION ERROR FIX!)
+                            param.setResult(true)
                         }
                     }
                 )
@@ -336,7 +336,6 @@ class MainHook : IXposedHookLoadPackage {
     private fun performHapticTick(context: Context) {
         try {
             val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-            // 🟢 केवल सुरक्षित API 26+ हैप्टिक वाइब्रेशन का उपयोग करें (LEGACY CODE REMOVED FOR DEPRECATION ERRORS!)
             vibrator.vibrate(VibrationEffect.createOneShot(15, VibrationEffect.DEFAULT_AMPLITUDE))
         } catch (e: Exception) {}
     }
