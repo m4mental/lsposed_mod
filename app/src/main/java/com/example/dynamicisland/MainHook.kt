@@ -14,6 +14,7 @@ import android.os.BatteryManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.VibrationEffect
 import android.os.Vibrator
 import android.util.TypedValue
 import android.view.Gravity
@@ -57,7 +58,7 @@ class MainHook : IXposedHookLoadPackage {
                     lpparam.classLoader,
                     "isXposedActive",
                     object : XC_MethodHook() {
-                        override fun beforeHookedMethod(param: XC_MethodHook.MethodHookParam?) {
+                        override fun beforeHookedMethod(param: MethodHookParam) {
                             val p = param ?: return
                             p.setResult(true)
                         }
@@ -76,9 +77,8 @@ class MainHook : IXposedHookLoadPackage {
                     lpparam.classLoader,
                     "onFinishInflate",
                     object : XC_MethodHook() {
-                        override fun afterHookedMethod(param: XC_MethodHook.MethodHookParam?) {
-                            val p = param ?: return
-                            val statusBarView = p.thisObject as ViewGroup
+                        override fun afterHookedMethod(param: MethodHookParam) {
+                            val statusBarView = param.thisObject as ViewGroup
                             val context = statusBarView.context
 
                             Handler(Looper.getMainLooper()).post {
@@ -148,10 +148,11 @@ class MainHook : IXposedHookLoadPackage {
             }
         }
         
-        // 🟢 कम्पाइलर-सेफ Layout Constant रिज़ॉल्यूशन (-1 यानी MATCH_PARENT, -2 यानी WRAP_CONTENT)
-        val visualizerParams = FrameLayout.LayoutParams(-2, -1).apply {
-            gravity = Gravity.RIGHT or Gravity.CENTER_VERTICAL
-        }
+        val visualizerParams = FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            Gravity.RIGHT or Gravity.CENTER_VERTICAL
+        )
         islandView?.addView(visualizerLayout, visualizerParams)
 
         var startX = 0f
@@ -222,7 +223,6 @@ class MainHook : IXposedHookLoadPackage {
             }
         }
 
-        // 🟢 रिफ्लेक्शन आधारित ब्रॉडकास्ट रजिस्टर (कंपाइल टाइम पर SDK अड़चन हमेशा के लिए ख़त्म)
         safeRegisterReceiver(context, receiver, filter)
     }
 
@@ -320,7 +320,8 @@ class MainHook : IXposedHookLoadPackage {
             val currentW = (startW + (endW - startW) * fraction).toInt()
             val currentH = (startH + (endH - startH) * fraction).toInt()
 
-            island.layoutParams = (island.layoutParams as FrameLayout.LayoutParams).apply {
+            // 🟢 Nothing OS स्थिरता के लिए MarginLayoutParams का सुरक्षित उपयोग (No ClassCastException!)
+            island.layoutParams = (island.layoutParams as ViewGroup.MarginLayoutParams).apply {
                 width = currentW
                 height = currentH
             }
@@ -335,16 +336,18 @@ class MainHook : IXposedHookLoadPackage {
         animator.start()
     }
 
-    // 🟢 100% सेफ वाइब्रेशन (सभी SDK पर कम्पाइल करने योग्य)
     private fun performHapticTick(context: Context) {
         try {
             val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-            @Suppress("DEPRECATION")
-            vibrator.vibrate(15) // यह हर एंड्रॉइड एसडीके पर कम्पाइल होता है
+            if (Build.VERSION.SDK_INT >= 26) {
+                vibrator.vibrate(VibrationEffect.createOneShot(15, VibrationEffect.DEFAULT_AMPLITUDE))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator.vibrate(15)
+            }
         } catch (e: Exception) {}
     }
 
-    // 🟢 रिफ्लेक्शन आधारित रिसीवर रजिस्ट्रेशन
     private fun safeRegisterReceiver(context: Context, receiver: BroadcastReceiver, filter: IntentFilter) {
         try {
             if (Build.VERSION.SDK_INT >= 33) {
@@ -352,9 +355,9 @@ class MainHook : IXposedHookLoadPackage {
                     "registerReceiver",
                     BroadcastReceiver::class.java,
                     IntentFilter::class.java,
-                    Int::class.javaPrimitiveType
+                    Int::class.java // 🟢 कोटलिन कोर क्लास टाइप (FIXED!)
                 )
-                method.invoke(context, receiver, filter, 2) // Context.RECEIVER_EXPORTED का मान 2 है
+                method.invoke(context, receiver, filter, 2)
             } else {
                 context.registerReceiver(receiver, filter)
             }
