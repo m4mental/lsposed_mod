@@ -6,11 +6,13 @@ pluginManagement {
     }
 }
 dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    // PREFER_SETTINGS टकराव को रोकता है और बिल्ड को आसान बनाता है
+    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
     repositories {
         google()
         mavenCentral()
-        maven { url 'https://api.xposed.info/' } // Xposed API डाउनलोड करने के लिए यह बहुत ज़रूरी है!
+        maven { url 'https://jitpack.io' }
+        maven { url 'https://api.xposed.info/' }
     }
 }
 
