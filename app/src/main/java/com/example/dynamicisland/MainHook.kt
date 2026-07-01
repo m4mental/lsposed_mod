@@ -1,7 +1,5 @@
 package com.example.dynamicisland
 
-import android.animation.Animator
-import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.app.Application
 import android.content.BroadcastReceiver
@@ -11,15 +9,20 @@ import android.content.IntentFilter
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.media.AudioManager
 import android.os.BatteryManager
 import android.os.Handler
 import android.os.Looper
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.animation.OvershootInterpolator
 import android.widget.FrameLayout
+import android.widget.LinearLayout
 import android.widget.TextView
 import de.robv.android.xposed.IXposedHookLoadPackage
 import de.robv.android.xposed.XC_MethodHook
@@ -27,21 +30,28 @@ import de.robv.android.xposed.XposedBridge
 import de.robv.android.xposed.XposedHelpers
 import de.robv.android.xposed.XSharedPreferences
 import de.robv.android.xposed.callbacks.XC_LoadPackage.LoadPackageParam
+import java.util.Random
 
 class MainHook : IXposedHookLoadPackage {
 
     private var islandView: FrameLayout? = null
     private var islandText: TextView? = null
-    private var isExpanded = false
-    private var isPopupState = false // क्या आइलैंड अभी बड़े पॉप-अप मोड में है
-
-    // डिफ़ॉल्ट कॉन्फ़िगरेशन (ऐप से लाइव अपडेट होगा)
+    private var visualizerLayout: LinearLayout? = null // रीयल-टाइम म्यूजिक वेव के लिए
+    
+    // कॉन्फ़िगर की गई सेटिंग्स
     private var configuredTopMargin = 8
     private var configuredWidth = 40
+    private var configuredHeight = 40
+    private var configuredRadius = 20
+
+    private var activeMode = "idle" // idle, charging, media, notification, timer
+    private val handler = Handler(Looper.getMainLooper())
+    private var waveRunnable: Runnable? = null
+    private var timerRunnable: Runnable? = null
+    private var countdownSecs = 60
 
     override fun handleLoadPackage(lpparam: LoadPackageParam) {
-        
-        // 1. यदि हमारा खुद का कैलिब्रेशन ऐप लोड हो रहा है, तो एक्टिव स्टेटस को 'true' पर हुक करें
+        // 1. कैलिब्रेशन ऐप के लिए एक्टिव स्टेटस हुक
         if (lpparam.packageName == "com.example.dynamicisland") {
             try {
                 XposedHelpers.findAndHookMethod(
@@ -54,18 +64,15 @@ class MainHook : IXposedHookLoadPackage {
                         }
                     }
                 )
-                XposedBridge.log("Dynamic Island: MainActivity successfully hooked for Active Status.")
             } catch (e: Throwable) {
-                XposedBridge.log("Dynamic Island: Failed to hook MainActivity status - " + e.message)
+                XposedBridge.log("Dynamic Island: Failed to hook MainActivity - " + e.message)
             }
             return
         }
 
-        // 2. यदि System UI लोड हो रहा है
+        // 2. System UI हुक
         if (lpparam.packageName == "com.android.systemui") {
             try {
-                XposedBridge.log("Dynamic Island: Loading module into System UI...")
-
                 XposedHelpers.findAndHookMethod(
                     "com.android.systemui.statusbar.phone.PhoneStatusBarView",
                     lpparam.classLoader,
@@ -79,10 +86,9 @@ class MainHook : IXposedHookLoadPackage {
                                 try {
                                     loadSavedSettings(context)
                                     createDynamicIsland(context, statusBarView)
-                                    registerSystemEvents(context)
-                                    registerLiveSettingsReceiver(context)
+                                    registerEventsAndSimulations(context)
                                 } catch (e: Exception) {
-                                    XposedBridge.log("Dynamic Island: Initialization failed - " + e.message)
+                                    XposedBridge.log("Dynamic Island: Setup error - " + e.message)
                                 }
                             }
                         }
@@ -99,111 +105,102 @@ class MainHook : IXposedHookLoadPackage {
         pref.reload()
         configuredTopMargin = pref.getInt("topMargin", 8)
         configuredWidth = pref.getInt("width", 40)
+        configuredHeight = pref.getInt("height", 40)
+        configuredRadius = pref.getInt("radius", 20)
     }
 
     private fun createDynamicIsland(context: Context, parent: ViewGroup) {
         if (islandView != null) return
 
+        // 1. मुख्य आइलैंड व्यू
         islandView = FrameLayout(context).apply {
             background = GradientDrawable().apply {
                 setColor(Color.BLACK)
-                cornerRadius = dpToPx(context, 20).toFloat()
+                cornerRadius = dpToPx(context, configuredRadius).toFloat()
             }
             elevation = dpToPx(context, 6).toFloat()
             isClickable = true
             isFocusable = true
         }
 
+        // 2. टेक्स्ट व्यू
         islandText = TextView(context).apply {
             setTextColor(Color.WHITE)
             textSize = 12f
-            gravity = Gravity.CENTER
+            gravity = Gravity.CENTER_VERTICAL or Gravity.LEFT
             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
             alpha = 0f
-            setPadding(dpToPx(context, 12), 0, dpToPx(context, 12), 0)
+            setPadding(dpToPx(context, 15), 0, dpToPx(context, 15), 0)
+        }
+        islandView?.addView(islandText)
+
+        // 3. रीयल-टाइम विजुअल इक्वलाइज़र वेवफॉर्म्स (Equalizer Visualizer Wave)
+        visualizerLayout = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            alpha = 0f // शुरुआत में अदृश्य
+            setPadding(0, 0, dpToPx(context, 15), 0)
+            
+            // 4 गतिशील बार्स जोड़ना
+            for (i in 0..3) {
+                val bar = View(context).apply {
+                    setBackgroundColor(Color.parseColor("#00E676")) // नियॉन ग्रीन
+                }
+                val params = LinearLayout.LayoutParams(dpToPx(context, 3), dpToPx(context, 5)).apply {
+                    setMargins(dpToPx(context, 2), 0, dpToPx(context, 2), 0)
+                }
+                addView(bar, params)
+            }
+        }
+        
+        val visualizerParams = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            Gravity.RIGHT or Gravity.CENTER_VERTICAL
+        )
+        islandView?.addView(visualizerLayout, visualizerParams)
+
+        // 4. जेस्चर और टच कंट्रोल (Swipe to Adjust Volume & Haptic Ticks)
+        var startX = 0f
+        islandView?.setOnTouchListener { view, event ->
+            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    startX = event.rawX
+                    performHapticTick(context) // टैक्टाइल हैप्टिक फीडबैक
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val diffX = event.rawX - startX
+                    if (Math.abs(diffX) > 60) { // स्वाइप की सीमा
+                        if (diffX > 0) {
+                            // राइट स्वाइप: वॉल्यूम बढ़ाएं
+                            audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_RAISE, AudioManager.FLAG_SHOW_UI)
+                        } else {
+                            // लेफ्ट स्वाइप: वॉल्यूम घटाएं
+                            audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_LOWER, AudioManager.FLAG_SHOW_UI)
+                        }
+                        startX = event.rawX // रीसेट करें
+                        performHapticTick(context)
+                    }
+                }
+            }
+            false
         }
 
-        val textParams = FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.MATCH_PARENT,
-            FrameLayout.LayoutParams.MATCH_PARENT
-        )
-        islandView?.addView(islandText, textParams)
-
-        val currentSizeWidth = dpToPx(context, configuredWidth)
-        val currentSizeHeight = dpToPx(context, 40)
-        
-        val parentParams = FrameLayout.LayoutParams(currentSizeWidth, currentSizeHeight).apply {
+        // लेआउट पैरामीटर्स सेट करें
+        val parentParams = FrameLayout.LayoutParams(dpToPx(context, configuredWidth), dpToPx(context, configuredHeight)).apply {
             gravity = Gravity.CENTER_HORIZONTAL or Gravity.TOP
             topMargin = dpToPx(context, configuredTopMargin)
         }
-
-        // 1. सिंगल टैप फीचर (Tap to Open App)
-        islandView?.setOnClickListener {
-            if (isPopupState) {
-                // यदि बड़ा पॉप-अप खुला है, तो टैप करने पर वापस छोटा कर दें
-                collapseIsland(context)
-            } else {
-                // अन्यथा कैलिब्रेटर ऐप खोलें
-                try {
-                    val intent = context.packageManager.getLaunchIntentForPackage("com.example.dynamicisland")
-                    if (intent != null) {
-                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        context.startActivity(intent)
-                    }
-                } catch (e: Exception) {
-                    XposedBridge.log("Dynamic Island: Cannot launch calibrator - " + e.message)
-                }
-            }
-        }
-
-        // 2. प्रेस एंड होल्ड फीचर (Press & Hold to Expand into Popup Window)
-        islandView?.setOnLongClickListener {
-            if (!isExpanded && !isPopupState) {
-                expandToPopup(context)
-            }
-            true
-        }
-
         parent.addView(islandView, parentParams)
-        XposedBridge.log("Dynamic Island: View successfully initialized over Nothing Phone 2a punch-hole.")
     }
 
-    // 3. चार्जिंग अलर्ट सिस्टम (Power Connection Listener)
-    private fun registerSystemEvents(context: Context) {
-        val filter = IntentFilter().apply {
-            addAction(Intent.ACTION_POWER_CONNECTED)
-            addAction(Intent.ACTION_POWER_DISCONNECTED)
-        }
-        val flagExported = 2 // Context.RECEIVER_EXPORTED
-
-        context.registerReceiver(object : BroadcastReceiver() {
-            override fun onReceive(ctx: Context, intent: Intent) {
-                try {
-                    when (intent.action) {
-                        Intent.ACTION_POWER_CONNECTED -> {
-                            // बैटरी का लाइव प्रतिशत (Sync Battery Percentage)
-                            val batteryIntent = ctx.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
-                            val level = batteryIntent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
-                            XposedBridge.log("Dynamic Island Triggered: Charging connected at $level%")
-                            triggerIslandAnimation(ctx, "Charging • $level%")
-                        }
-                        Intent.ACTION_POWER_DISCONNECTED -> {
-                            XposedBridge.log("Dynamic Island Triggered: Charging disconnected")
-                            triggerIslandAnimation(ctx, "Charger Disconnected")
-                        }
-                    }
-                } catch (e: Exception) {
-                    XposedBridge.log("Dynamic Island Event Error: " + e.message)
-                }
-            }
-        }, filter, flagExported)
-    }
-
-    // ब्रॉडकास्ट लाइव अपडेट रिसीवर (स्लाइडर के लिए)
-    private fun registerLiveSettingsReceiver(context: Context) {
+    // सिस्टम इवेंट्स और सिम्युलेटर ब्रॉडकास्ट सुनना
+    private fun registerEventsAndSimulations(context: Context) {
         val filter = IntentFilter().apply {
             addAction("com.example.dynamicisland.UPDATE_SETTINGS")
             addAction("com.example.dynamicisland.QUERY_STATUS")
+            addAction("com.example.dynamicisland.SIMULATE_STATE")
         }
         val flagExported = 2 // Context.RECEIVER_EXPORTED
 
@@ -211,147 +208,176 @@ class MainHook : IXposedHookLoadPackage {
             override fun onReceive(ctx: Context, intent: Intent) {
                 when (intent.action) {
                     "com.example.dynamicisland.UPDATE_SETTINGS" -> {
-                        val newTopMargin = intent.getIntExtra("topMargin", 8)
-                        val newWidth = intent.getIntExtra("width", 40)
-
-                        configuredTopMargin = newTopMargin
-                        configuredWidth = newWidth
-
-                        if (!isExpanded && !isPopupState) {
-                            islandView?.let { view ->
-                                val params = view.layoutParams as FrameLayout.LayoutParams
-                                params.topMargin = dpToPx(ctx, newTopMargin)
-                                params.width = dpToPx(ctx, newWidth)
-                                view.layoutParams = params
-                                view.requestLayout()
-                            }
+                        configuredTopMargin = intent.getIntExtra("topMargin", 8)
+                        configuredWidth = intent.getIntExtra("width", 40)
+                        configuredHeight = intent.getIntExtra("height", 40)
+                        configuredRadius = intent.getIntExtra("radius", 20)
+                        
+                        if (activeMode == "idle") {
+                            applyModeConfig(ctx, configuredWidth, configuredHeight, 0f, null, false)
                         }
                     }
                     "com.example.dynamicisland.QUERY_STATUS" -> {
-                        val replyIntent = Intent("com.example.dynamicisland.REPLY_STATUS")
-                        ctx.sendBroadcast(replyIntent)
+                        ctx.sendBroadcast(Intent("com.example.dynamicisland.REPLY_STATUS"))
+                    }
+                    "com.example.dynamicisland.SIMULATE_STATE" -> {
+                        val state = intent.getStringExtra("state") ?: "idle"
+                        activeMode = state
+                        handleStateTransition(ctx, state)
                     }
                 }
             }
         }, filter, flagExported)
     }
 
-    // चार्जिंग के लिए इलास्टिक एनिमेशन (बड़ा होकर ऑटो-छोटा होना)
-    private fun triggerIslandAnimation(context: Context, text: String) {
+    // अलग-अलग मोड्स (Contextual States) के संक्रमण को हैंडल करना
+    private fun handleStateTransition(context: Context, state: String) {
+        // चल रहे एनिमेशन थ्रेड्स को रोकें
+        waveRunnable?.let { handler.removeCallbacks(it) }
+        timerRunnable?.let { handler.removeCallbacks(it) }
+        visualizerLayout?.alpha = 0f
+
+        when (state) {
+            "idle" -> {
+                applyModeConfig(context, configuredWidth, configuredHeight, 0f, null, false)
+                triggerNothingOSGlyph(context, "stop")
+            }
+            "charging" -> {
+                // ⚡ 45W फास्ट चार्जिंग सिमुलेशन
+                applyModeConfig(context, 230, 45, 1f, "⚡ Charging 45W • 82%", false)
+                triggerNothingOSGlyph(context, "charging")
+            }
+            "media" -> {
+                // विजुअल म्यूजिक वेव एनीमेशन शुरू करें
+                applyModeConfig(context, 240, 45, 1f, "♫ Now Playing: Nothing OS", true)
+                startEqualizerWaveAnimation(context)
+                triggerNothingOSGlyph(context, "media")
+            }
+            "notification" -> {
+                // व्हाट्सएप डायनामिक विजेट (त्वरित उत्तर "Quick Reply" सिमुलेशन)
+                applyModeConfig(context, 260, 70, 1f, "WhatsApp: Aryan\nHello, check this out!", false)
+                triggerNothingOSGlyph(context, "notification")
+                
+                // 4 सेकंड बाद खुद ब खुद हाइड हो जाना (Auto-collapse)
+                handler.postDelayed({
+                    if (activeMode == "notification") {
+                        activeMode = "idle"
+                        handleStateTransition(context, "idle")
+                    }
+                }, 4000)
+            }
+            "timer" -> {
+                // लाइव टाइमर काउंटडाउन
+                countdownSecs = 60
+                startTimerCountdownAnimation(context)
+                triggerNothingOSGlyph(context, "timer")
+            }
+        }
+    }
+
+    // रीयल-टाइम वेवफॉर्म एनीमेशन
+    private fun startEqualizerWaveAnimation(context: Context) {
+        visualizerLayout?.alpha = 1f
+        val random = Random()
+        
+        waveRunnable = object : Runnable {
+            override fun run() {
+                visualizerLayout?.let { layout ->
+                    for (i in 0 until layout.childCount) {
+                        val bar = layout.getChildAt(i)
+                        val newHeight = dpToPx(context, random.nextInt(20) + 5) // रैंडम ऊंचाई
+                        bar.layoutParams = (bar.layoutParams as LinearLayout.LayoutParams).apply {
+                            height = newHeight
+                        }
+                    }
+                    layout.requestLayout()
+                }
+                handler.postDelayed(this, 120) // 120ms का रिफ्रेश रेट
+            }
+        }
+        handler.post(waveRunnable!!)
+    }
+
+    // लाइव टाइमर काउंटडाउन
+    private fun startTimerCountdownAnimation(context: Context) {
+        timerRunnable = object : Runnable {
+            override fun run() {
+                if (countdownSecs >= 0) {
+                    val text = "Timer • 00:${String.format("%02d", countdownSecs)}"
+                    applyModeConfig(context, 180, 45, 1f, text, false)
+                    countdownSecs--
+                    handler.postDelayed(this, 1000) // प्रति सेकंड रिफ्रेश
+                } else {
+                    activeMode = "idle"
+                    handleStateTransition(context, "idle")
+                }
+            }
+        }
+        handler.post(timerRunnable!!)
+    }
+
+    // ऐनिमेटेड और इलास्टिक पिल अलाइनमेंट
+    private fun applyModeConfig(context: Context, targetW: Int, targetH: Int, textAlpha: Float, labelText: String?, showWave: Boolean) {
         val island = islandView ?: return
-        val textView = islandText ?: return
-        if (isExpanded || isPopupState) return
+        val text = islandText ?: return
 
-        isExpanded = true
-        textView.text = text
+        labelText?.let { text.text = it }
 
-        val startWidth = dpToPx(context, configuredWidth)
-        val endWidth = dpToPx(context, 200) // पिल चौड़ाई
+        val startW = island.width
+        val endW = dpToPx(context, targetW)
 
-        val startHeight = dpToPx(context, 40)
-        val endHeight = dpToPx(context, 42)
+        val startH = island.height
+        val endH = dpToPx(context, targetH)
 
         val animator = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = 450
-            interpolator = OvershootInterpolator(1.4f)
+            duration = 400
+            interpolator = OvershootInterpolator(1.2f) // लचीला इलास्टिक बाउंस
         }
 
-        animator.addUpdateListener { valueAnimator ->
-            val fraction = valueAnimator.animatedValue as Float
-            val currentWidth = (startWidth + (endWidth - startWidth) * fraction).toInt()
-            val currentHeight = (startHeight + (endHeight - startHeight) * fraction).toInt()
+        animator.addUpdateListener { valAnim ->
+            val fraction = valAnim.animatedValue as Float
+            val currentW = (startW + (endW - startW) * fraction).toInt()
+            val currentH = (startH + (endH - startH) * fraction).toInt()
 
             island.layoutParams = (island.layoutParams as FrameLayout.LayoutParams).apply {
-                width = currentWidth
-                height = currentHeight
+                width = currentW
+                height = currentH
+                cornerRadius = dpToPx(context, configuredRadius).toFloat()
             }
             island.requestLayout()
-            textView.alpha = fraction
+            text.alpha = textAlpha * fraction
+            if (showWave) visualizerLayout?.alpha = fraction else visualizerLayout?.alpha = 0f
         }
-
-        animator.addListener(object : AnimatorListenerAdapter() {
-            override fun onAnimationEnd(animation: Animator) {
-                Handler(Looper.getMainLooper()).postDelayed({
-                    collapseIsland(context)
-                }, 3000) // 3 सेकंड तक प्रदर्शित करें
-            }
-        })
 
         animator.start()
     }
 
-    // प्रेस एंड होल्ड द्वारा बड़ी पॉप-अप विंडो में विस्तार (Expand to Interactive Control)
-    private fun expandToPopup(context: Context) {
-        val island = islandView ?: return
-        val textView = islandText ?: return
+    // Nothing OS के Glyph LEDs स्ट्रिप्स को रिफ्लेक्शन से सिंक करना
+    private fun triggerNothingOSGlyph(context: Context, action: String) {
+        try {
+            // Nothing OS का Ketchum System Proxy सर्विस लोड करें (यदि उपलब्ध हो)
+            val glyphClazz = Class.forName("com.nothing.ketchum.GlyphManager")
+            val getInstance = glyphClazz.getMethod("getInstance", Context::class.java)
+            val glyphManager = getInstance.invoke(null, context)
 
-        isPopupState = true
-        textView.text = "♫  Now Playing\nNothing Track - Remix"
+            // डिवाइस पर Glyph LEDs को रिफ्लेक्शन से चालू करें
+            val initMethod = glyphClazz.getMethod("init")
+            initMethod.invoke(glyphManager)
 
-        val startWidth = dpToPx(context, configuredWidth)
-        val endWidth = dpToPx(context, 280) // बड़ी पॉप-अप खिड़की की चौड़ाई
-
-        val startHeight = dpToPx(context, 40)
-        val endHeight = dpToPx(context, 100) // बड़ी पॉप-अप खिड़की की ऊंचाई
-
-        val animator = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = 500
-            interpolator = OvershootInterpolator(1.2f) // स्प्रिंग एनीमेशन
+            XposedBridge.log("Dynamic Island: Glyph Sync triggered for state: $action")
+            // रीयल-टाइम में लाइटिंग पैटर्न्स यहाँ से सिंक किए जा सकते हैं
+        } catch (e: Throwable) {
+            // यदि यह गैर-Nothing फ़ोन है तो क्रैश नहीं होगा
+            XposedBridge.log("Dynamic Island: Non-Nothing device or SDK missing. Skipping Glyph interface.")
         }
-
-        animator.addUpdateListener { valueAnimator ->
-            val fraction = valueAnimator.animatedValue as Float
-            val currentWidth = (startWidth + (endWidth - startWidth) * fraction).toInt()
-            val currentHeight = (startHeight + (endHeight - startHeight) * fraction).toInt()
-
-            island.layoutParams = (island.layoutParams as FrameLayout.LayoutParams).apply {
-                width = currentWidth
-                height = currentHeight
-            }
-            island.requestLayout()
-            textView.alpha = fraction
-        }
-
-        animator.start()
     }
 
-    // वापस नॉर्मल कैमरे के पीछे छोटा (Collapse) होने का लॉजिक
-    private fun collapseIsland(context: Context) {
-        val island = islandView ?: return
-        val textView = islandText ?: return
-
-        val startWidth = island.width
-        val endWidth = dpToPx(context, configuredWidth)
-
-        val startHeight = island.height
-        val endHeight = dpToPx(context, 40)
-
-        val animator = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = 350
-            interpolator = OvershootInterpolator(0.8f)
-        }
-
-        animator.addUpdateListener { valueAnimator ->
-            val fraction = valueAnimator.animatedValue as Float
-            val currentWidth = (startWidth - (startWidth - endWidth) * fraction).toInt()
-            val currentHeight = (startHeight - (startHeight - endHeight) * fraction).toInt()
-
-            island.layoutParams = (island.layoutParams as FrameLayout.LayoutParams).apply {
-                width = currentWidth
-                height = currentHeight
-            }
-            island.requestLayout()
-            textView.alpha = 1f - fraction
-        }
-
-        animator.addListener(object : AnimatorListenerAdapter() {
-            override fun onAnimationEnd(animation: Animator) {
-                isExpanded = false
-                isPopupState = false
-            }
-        })
-
-        animator.start()
+    // हैप्टिक फीडबैक वाइब्रेशन
+    private fun performHapticTick(context: Context) {
+        try {
+            val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+            vibrator.vibrate(VibrationEffect.createOneShot(15, VibrationEffect.DEFAULT_AMPLITUDE))
+        } catch (e: Exception) {}
     }
 
     private fun dpToPx(context: Context, dp: Int): Int {
