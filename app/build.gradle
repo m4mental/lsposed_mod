@@ -15,24 +15,7 @@ android {
         versionName "1.0"
     }
 
-    signingConfigs {
-        debug {
-            // प्रोजेक्ट के रूट फ़ोल्डर में कीस्टोर जाँचे
-            def keystoreFile = rootProject.file("debug.keystore")
-            if (keystoreFile.exists()) {
-                storeFile = keystoreFile
-                storePassword = "android"
-                keyAlias = "androiddebugkey"
-                keyPassword = "android"
-            }
-            // यदि फ़ाइल मौजूद नहीं है, तो डिफ़ॉल्ट ~/.android/debug.keystore का उपयोग जारी रहेगा!
-        }
-    }
-
     buildTypes {
-        debug {
-            signingConfig signingConfigs.debug
-        }
         release {
             minifyEnabled false
         }
