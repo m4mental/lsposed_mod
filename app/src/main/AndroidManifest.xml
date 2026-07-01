@@ -17,9 +17,15 @@
             </intent-filter>
         </activity>
 
+        <!-- LSPosed को बताने के लिए कि यह एक मॉड्यूल है -->
         <meta-data
             android:name="xposedmodule"
             android:value="true" />
+        
+        <!-- ऑटोमैटिक स्कोप (Scope) रिकमेंडेशन: SystemUI और आपका ऐप खुद-ब-खुद सिलेक्ट हो जाएगा -->
+        <meta-data
+            android:name="xposedscope"
+            android:value="com.android.systemui;com.example.dynamicisland" />
         
         <meta-data
             android:name="xposeddescription"
