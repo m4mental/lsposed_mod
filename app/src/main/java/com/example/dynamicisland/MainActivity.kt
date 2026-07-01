@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.Color
 import android.graphics.Typeface
+import android.os.Build
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
@@ -181,7 +182,14 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         val filter = IntentFilter("com.example.dynamicisland.REPLY_STATUS")
-        registerReceiver(statusReceiver, filter, Context.RECEIVER_EXPORTED)
+        
+        // Android 13+ सुरक्षा जांच के साथ ब्रॉडकास्ट रजिस्टर करें
+        if (Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(statusReceiver, filter, Context.RECEIVER_EXPORTED)
+        } else {
+            registerReceiver(statusReceiver, filter)
+        }
+        
         sendBroadcast(Intent("com.example.dynamicisland.QUERY_STATUS"))
     }
 
