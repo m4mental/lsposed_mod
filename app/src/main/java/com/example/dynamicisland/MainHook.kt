@@ -58,8 +58,8 @@ class MainHook : IXposedHookLoadPackage {
                     lpparam.classLoader,
                     "isXposedActive",
                     object : XC_MethodHook() {
-                        // 🟢 प्लेटफ़ॉर्म नल-सुरक्षा के साथ हुक मेथड पैरामीटर
-                        override fun beforeHookedMethod(param: MethodHookParam?) {
+                        // 🟢 कोटलिन-सुरक्षित XC_MethodHook.MethodHookParam डिक्लेरेशन (बग फिक्स!)
+                        override fun beforeHookedMethod(param: XC_MethodHook.MethodHookParam?) {
                             val p = param ?: return
                             p.setResult(true)
                         }
@@ -73,12 +73,15 @@ class MainHook : IXposedHookLoadPackage {
 
         if (lpparam.packageName == "com.android.systemui") {
             try {
+                XposedBridge.log("Dynamic Island: Loading module into System UI...")
+
                 XposedHelpers.findAndHookMethod(
                     "com.android.systemui.statusbar.phone.PhoneStatusBarView",
                     lpparam.classLoader,
                     "onFinishInflate",
                     object : XC_MethodHook() {
-                        override fun afterHookedMethod(param: MethodHookParam?) {
+                        // 🟢 कोटलिन-सुरक्षित XC_MethodHook.MethodHookParam डिक्लेरेशन (बग फिक्स!)
+                        override fun afterHookedMethod(param: XC_MethodHook.MethodHookParam?) {
                             val p = param ?: return
                             val statusBarView = p.thisObject as ViewGroup
                             val context = statusBarView.context
@@ -150,7 +153,6 @@ class MainHook : IXposedHookLoadPackage {
             }
         }
         
-        // 🟢 प्रत्यक्ष रूप से पूर्ण क्लास पाथ का उपयोग
         val visualizerParams = FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.WRAP_CONTENT,
             ViewGroup.LayoutParams.MATCH_PARENT,
@@ -160,7 +162,6 @@ class MainHook : IXposedHookLoadPackage {
 
         var startX = 0f
         islandView?.setOnTouchListener { _, event ->
-            // 🟢 मोशनइवेंट की प्लेटफ़ॉर्म नल-सुरक्षा (Kotlin Compiler Error Preventer)
             val ev = event ?: return@setOnTouchListener false
             val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
             when (ev.action) {
@@ -198,7 +199,6 @@ class MainHook : IXposedHookLoadPackage {
             addAction("com.example.dynamicisland.SIMULATE_STATE")
         }
 
-        // 🟢 पूर्ण रूप से नल-सुरक्षित ब्रॉडकास्ट रिसीवर
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(ctx: Context?, intent: Intent?) {
                 val c = ctx ?: return
