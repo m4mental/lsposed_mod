@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- ब्राइटनेस और वॉल्यूम एडजस्ट करने के लिए आवश्यक अनुमतियां -->
+    <!-- आवश्यक अनुमतियां -->
     <uses-permission android:name="android.permission.WRITE_SETTINGS" />
     <uses-permission android:name="android.permission.VIBRATE" />
 
@@ -9,9 +9,6 @@
         android:allowBackup="true"
         android:label="Dynamic Island Calibrator"
         android:theme="@android:style/Theme.DeviceDefault">
-        
-        <!-- Nothing Phone (2a) Glyph SDK Compatibility Key -->
-        <meta-data android:name="NothingKey" android:value="test"/>
 
         <!-- लॉन्चर ऐप एक्टिविटी -->
         <activity
@@ -34,7 +31,7 @@
         
         <meta-data
             android:name="xposeddescription"
-            android:value="Next-Gen Dynamic Island with Nothing OS Glyph Sync" />
+            android:value="Adjustable Dynamic Island with Interactive Gestures" />
         
         <meta-data
             android:name="xposedminversion"
