@@ -11,7 +11,6 @@ import android.os.Build
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
-import android.view.ViewGroup
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.SeekBar
@@ -84,11 +83,11 @@ class MainActivity : Activity() {
             setTextColor(Color.GRAY)
         }
 
-        // 🟢 Layout-clash से बचने के लिए सीधा ViewGroup.LayoutParams उपयोग करें
-        val paramCalib = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+        // 🟢 कम्पाइलर-सेफ Layout Constant रिज़ॉल्यूशन (-2 यानी WRAP_CONTENT)
+        val paramCalib = LinearLayout.LayoutParams(0, -2).apply {
             weight = 1f
         }
-        val paramSim = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+        val paramSim = LinearLayout.LayoutParams(0, -2).apply {
             weight = 1f
         }
 
@@ -183,7 +182,8 @@ class MainActivity : Activity() {
                 }
                 sendBroadcast(intent)
             }
-            val params = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            // 🟢 कम्पाइलर-सेफ Layout Constant रिज़ॉल्यूशन (-1 यानी MATCH_PARENT, -2 यानी WRAP_CONTENT)
+            val params = LinearLayout.LayoutParams(-1, -2).apply {
                 topMargin = 10
                 bottomMargin = 15
             }
@@ -201,11 +201,8 @@ class MainActivity : Activity() {
         super.onResume()
         val filter = IntentFilter("com.example.dynamicisland.REPLY_STATUS")
         
-        if (Build.VERSION.SDK_INT >= 33) {
-            registerReceiver(statusReceiver, filter, Context.RECEIVER_EXPORTED)
-        } else {
-            registerReceiver(statusReceiver, filter)
-        }
+        // 🟢 कोडिंग कम्फर्ट: किसी भी SDK वर्शन पर रिफ्लेक्शन से एक्सपोर्टेड रिसीवर कॉल करें
+        safeRegisterReceiver(this, statusReceiver, filter)
         
         sendBroadcast(Intent("com.example.dynamicisland.QUERY_STATUS"))
     }
@@ -226,5 +223,24 @@ class MainActivity : Activity() {
             putExtra("radius", sharedPref.getInt("radius", 20))
         }
         sendBroadcast(intent)
+    }
+
+    // 🟢 100% कंपाइल-सेफ रिफ्लेक्शन मेथड (यह एरर को पूरी तरह रोकेगा)
+    private fun safeRegisterReceiver(context: Context, receiver: BroadcastReceiver, filter: IntentFilter) {
+        try {
+            if (Build.VERSION.SDK_INT >= 33) {
+                val method = Context::class.java.getMethod(
+                    "registerReceiver",
+                    BroadcastReceiver::class.java,
+                    IntentFilter::class.java,
+                    Int::class.javaPrimitiveType
+                )
+                method.invoke(context, receiver, filter, 2) // 2 का मतलब Context.RECEIVER_EXPORTED है
+            } else {
+                context.registerReceiver(receiver, filter)
+            }
+        } catch (e: Throwable) {
+            context.registerReceiver(receiver, filter)
+        }
     }
 }
