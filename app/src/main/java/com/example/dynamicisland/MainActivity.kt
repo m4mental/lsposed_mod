@@ -7,11 +7,11 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.Color
 import android.graphics.Typeface
-import android.os.Build // 🟢 महत्वपूर्ण इम्पोर्ट जोड़ा गया!
+import android.os.Build
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
-import android.view.ViewGroup // 🟢 WRAP_CONTENT के लिए सुरक्षित इम्पोर्ट
+import android.view.ViewGroup
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.SeekBar
@@ -76,8 +76,16 @@ class MainActivity : Activity() {
             setTextColor(Color.GRAY)
         }
 
-        tabContainer.addView(btnTabCalibration, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        tabContainer.addView(btnTabSimulator, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        // कंपाइल-सेफ लेआउट पैरामीटर्स सेटिंग्स (weight = 1f)
+        val paramCalib = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            weight = 1f
+        }
+        val paramSim = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            weight = 1f
+        }
+
+        tabContainer.addView(btnTabCalibration, paramCalib)
+        tabContainer.addView(btnTabSimulator, paramSim)
         mainLayout.addView(tabContainer)
 
         contentFrame = LinearLayout(this).apply {
@@ -167,8 +175,9 @@ class MainActivity : Activity() {
                 }
                 sendBroadcast(intent)
             }
-            val params = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
-                setMargins(0, 10, 0, 15)
+            val params = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                topMargin = 10
+                bottomMargin = 15
             }
             contentFrame.addView(btn, params)
         }
@@ -184,7 +193,6 @@ class MainActivity : Activity() {
         super.onResume()
         val filter = IntentFilter("com.example.dynamicisland.REPLY_STATUS")
         
-        // Build इम्पोर्ट के साथ सुरक्षित चेक
         if (Build.VERSION.SDK_INT >= 33) {
             registerReceiver(statusReceiver, filter, Context.RECEIVER_EXPORTED)
         } else {
