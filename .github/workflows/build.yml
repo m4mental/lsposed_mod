@@ -18,41 +18,30 @@ jobs:
     - name: Checkout Repository
       uses: actions/checkout@v4
 
-    # 1. Java 17 (JDK 17) का सुचारू सेटअप (AGP 8.2.2 के लिए सबसे अनुकूल)
+    # 1. Setup stable JDK 17 for AGP 8.2.2
     - name: Set up JDK 17
       uses: actions/setup-java@v4
       with:
         java-version: '17'
         distribution: 'temurin'
 
-    # 2. Setup Gradle (8.5 वर्शन का सीधे सेटअप ताकि कंपाइलर अलाइन रहे)
+    # 2. Setup compatible Gradle 8.5 (matching your wrapper version)
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v4
       with:
         gradle-version: '8.5'
 
-    # 3. यदि आपके प्रोजेक्ट रूट में 'gradlew' फाइलें गायब हैं, तो उन्हें यहाँ जनरेट करें
+    # 3. यदि आपके गिटहब प्रोजेक्ट रूट में 'gradlew' स्क्रिप्ट गायब है, तो उसे यहाँ रीयल-टाइम में जनरेट करें (बग फिक्स!)
     - name: Generate Gradle Wrapper
       run: gradle wrapper --gradle-version 8.5
 
-    # 4. (गिटहब सीक्रेट सुरक्षा) यदि सीक्रेट में बेस64 कीस्टोर मौजूद है, तो उसे डिकोड करें
-    - name: Decode Custom Keystore from Secrets (If Available)
+    # 4. Give execution permission and Build using Gradle Wrapper
+    - name: Build with Gradle Wrapper
       run: |
-        if [ -n "${{ secrets.DEBUG_KEYSTORE_BASE64 }}" ]; then
-          echo "${{ secrets.DEBUG_KEYSTORE_BASE64 }}" | base64 --decode > debug.keystore
-          cp debug.keystore app/debug.keystore || true
-          echo "Dynamic Island: Successfully decoded custom debug.keystore from secrets!"
-        else
-          echo "Dynamic Island: No DEBUG_KEYSTORE_BASE64 secret found. Using default/fallback signing."
-        fi
+        chmod +x gradlew
+        ./gradlew :app:assembleDebug --no-configuration-cache --stacktrace --info
 
-    - name: Grant execute permission for gradlew
-      run: chmod +x gradlew
-
-    # 5. बिना configuration cache टकराव के './gradlew' (Wrapper) से कंपाइल करें
-    - name: Build with Gradle
-      run: ./gradlew :app:assembleDebug --no-configuration-cache --stacktrace --info
-
+    # 5. Upload the generated APK as workflow artifact
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
