@@ -18,30 +18,25 @@ jobs:
     - name: Checkout Repository
       uses: actions/checkout@v4
 
-    # 1. Setup stable JDK 17 for AGP 8.2.2
     - name: Set up JDK 17
       uses: actions/setup-java@v4
       with:
         java-version: '17'
         distribution: 'temurin'
 
-    # 2. Setup compatible Gradle 8.5 (matching your wrapper version)
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v4
       with:
         gradle-version: '8.5'
 
-    # 3. यदि आपके गिटहब प्रोजेक्ट रूट में 'gradlew' स्क्रिप्ट गायब है, तो उसे यहाँ रीयल-टाइम में जनरेट करें (बग फिक्स!)
     - name: Generate Gradle Wrapper
       run: gradle wrapper --gradle-version 8.5
 
-    # 4. Give execution permission and Build using Gradle Wrapper
     - name: Build with Gradle Wrapper
       run: |
         chmod +x gradlew
-        ./gradlew :app:assembleDebug --no-configuration-cache --stacktrace --info
+        ./gradlew :app:assembleDebug --no-configuration-cache --stacktrace
 
-    # 5. Upload the generated APK as workflow artifact
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
