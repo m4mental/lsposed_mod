@@ -15,7 +15,7 @@ import android.os.BatteryManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
-import android.os.VibrationEffect // 🟢 अत्यंत महत्वपूर्ण इम्पोर्ट जोड़ा गया!
+import android.os.VibrationEffect
 import android.os.Vibrator
 import android.util.TypedValue
 import android.view.Gravity
@@ -29,6 +29,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import de.robv.android.xposed.IXposedHookLoadPackage
 import de.robv.android.xposed.XC_MethodHook
+import de.robv.android.xposed.XC_MethodHook.MethodHookParam // 🟢 क्रिटिकल नेस्टेड क्लास इम्पोर्ट!
 import de.robv.android.xposed.XposedBridge
 import de.robv.android.xposed.XposedHelpers
 import de.robv.android.xposed.XSharedPreferences
@@ -62,7 +63,7 @@ class MainHook : IXposedHookLoadPackage {
                     lpparam.classLoader,
                     "isXposedActive",
                     object : XC_MethodHook() {
-                        override fun beforeHookedMethod(param: XC_MethodHook.MethodHookParam?) {
+                        override fun beforeHookedMethod(param: MethodHookParam?) {
                             val p = param ?: return
                             p.setResult(true)
                         }
@@ -81,7 +82,7 @@ class MainHook : IXposedHookLoadPackage {
                     lpparam.classLoader,
                     "onCreate",
                     object : XC_MethodHook() {
-                        override fun afterHookedMethod(param: XC_MethodHook.MethodHookParam?) {
+                        override fun afterHookedMethod(param: MethodHookParam?) {
                             val p = param ?: return
                             val app = p.thisObject as Application
                             val context = app.applicationContext
@@ -107,7 +108,7 @@ class MainHook : IXposedHookLoadPackage {
                     lpparam.classLoader,
                     "onFinishInflate",
                     object : XC_MethodHook() {
-                        override fun afterHookedMethod(param: XC_MethodHook.MethodHookParam?) {
+                        override fun afterHookedMethod(param: MethodHookParam?) {
                             val p = param ?: return
                             val statusBarView = p.thisObject as ViewGroup
                             val context = statusBarView.context
@@ -182,15 +183,15 @@ class MainHook : IXposedHookLoadPackage {
                 setCornerRadius(dpToPx(context, configuredRadius).toFloat())
             }
             elevation = dpToPx(context, 6).toFloat()
-            isClickable = true
-            isFocusable = true
+            setClickable(true)
+            setFocusable(true)
         }
 
         islandText = TextView(context).apply {
             setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
             setGravity(Gravity.CENTER_VERTICAL or Gravity.LEFT)
-            alpha = 0f
+            setAlpha(0f)
             setPadding(dpToPx(context, 15), 0, dpToPx(context, 15), 0)
         }
         islandView?.addView(islandText)
@@ -198,7 +199,7 @@ class MainHook : IXposedHookLoadPackage {
         visualizerLayout = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            alpha = 0f
+            setAlpha(0f)
             setPadding(0, 0, dpToPx(context, 15), 0)
             
             for (i in 0..3) {
