@@ -18,21 +18,29 @@ jobs:
     - name: Checkout Repository
       uses: actions/checkout@v4
 
-    - name: Set up JDK 17
+    # 1. AGP 9.1.1+ के लिए आवश्यक JDK 21 का सुचारू सेटअप
+    - name: Set up JDK 21
       uses: actions/setup-java@v4
       with:
-        java-version: '17'
+        java-version: '21'
         distribution: 'temurin'
 
-    # 1. गिटहब रनर पर सीधे तौर पर नया Gradle 8.10.2 ग्लोबली सेटअप करें
+    # 2. AGP 9.1.1 के लिए आवश्यक संगत Gradle 8.10.2 सेटअप करें
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v4
       with:
         gradle-version: '8.10.2'
 
-    # 2. सीधे ग्लोबल 'gradle' कमांड से क्लीन बिल्ड करें (यह चिकन-एंड-एग एरर को 100% रोकेगा)
+    # 3. JDK 21 के साथ सुरक्षित ग्रैडल रैपर जनरेट करें
+    - name: Generate Gradle Wrapper
+      run: gradle wrapper --gradle-version 8.10.2
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    # 4. बिना कॉन्फ़िगरेशन कैशिंग टकराव के `./gradlew` से कम्पाइल करें
     - name: Build with Gradle
-      run: gradle :app:assembleDebug --no-configuration-cache --stacktrace --info
+      run: ./gradlew assembleDebug --no-configuration-cache --stacktrace --info
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
