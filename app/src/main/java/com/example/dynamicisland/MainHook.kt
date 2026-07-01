@@ -190,7 +190,7 @@ class MainHook : IXposedHookLoadPackage {
             addAction("com.example.dynamicisland.QUERY_STATUS")
             addAction("com.example.dynamicisland.SIMULATE_STATE")
         }
-        val flagExported = 2
+        val flagExported = Context.RECEIVER_EXPORTED
 
         context.registerReceiver(object : BroadcastReceiver() {
             override fun onReceive(ctx: Context, intent: Intent) {
@@ -312,11 +312,17 @@ class MainHook : IXposedHookLoadPackage {
             val currentW = (startW + (endW - startW) * fraction).toInt()
             val currentH = (startH + (endH - startH) * fraction).toInt()
 
+            // 1. लेआउट पैरामीटर्स में केवल साइज बदलें
             island.layoutParams = (island.layoutParams as FrameLayout.LayoutParams).apply {
                 width = currentW
                 height = currentH
+            }
+            
+            // 2. बैकग्राउंड ड्राएबल में कॉर्नर रेडियस बदलें (बग फिक्स!)
+            (island.background as? GradientDrawable)?.apply {
                 cornerRadius = dpToPx(context, configuredRadius).toFloat()
             }
+            
             island.requestLayout()
             text.alpha = textAlpha * fraction
             if (showWave) visualizerLayout?.alpha = fraction else visualizerLayout?.alpha = 0f
