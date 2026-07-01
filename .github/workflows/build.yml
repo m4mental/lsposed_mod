@@ -24,28 +24,22 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    # 1. AGP 9.1.1 के लिए आवश्यक सटीक Gradle 8.10.2 सेटअप करें
+    # AGP 9.1.1 और Android 16 के लिए संगत Gradle 8.10.2 सेटअप
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v4
       with:
         gradle-version: '8.10.2'
 
-    # 2. क्लाउड पर 8.10.2 रैपर जनरेट करें
+    # लोकल ग्रैडल रैपर जनरेट करें
     - name: Generate Gradle Wrapper
       run: gradle wrapper --gradle-version 8.10.2
 
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
 
-    # 3. .gitignore के कारण छूटी हुई debug.keystore को रीयल-टाइम में रनर के लिए जनरेट करें
-    - name: Generate Dummy Debug Keystore
-      run: |
-        keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
-        cp debug.keystore app/debug.keystore || true
-
-    # 4. अब परफेक्ट अलाइनमेंट के साथ कम्पाइल करें
+    # बिना कॉन्फ़िगरेशन कैशिंग टकराव के क्लीन बिल्ड करें
     - name: Build with Gradle
-      run: ./gradlew assembleDebug --stacktrace --info
+      run: ./gradlew :app:assembleDebug --no-configuration-cache --stacktrace --info
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
