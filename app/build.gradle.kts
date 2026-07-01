@@ -48,8 +48,6 @@ android {
       val debugKeystoreFile = file("${rootDir}/debug.keystore")
       if (debugKeystoreFile.exists()) {
         signingConfig = signingConfigs.getByName("debugConfig")
-      } else {
-        signingConfig = signingConfigs.getByName("debug")
       }
     }
   }
