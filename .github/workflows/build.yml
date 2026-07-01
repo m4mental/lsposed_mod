@@ -1,14 +1,10 @@
-name: Build LSPosed Module
+name: Android CI/CD
 
 on:
   push:
     branches: [ "main", "master", "dev" ]
   pull_request:
     branches: [ "main", "master", "dev" ]
-  workflow_dispatch:
-
-permissions:
-  contents: write
 
 jobs:
   build:
