@@ -7,7 +7,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.Color
 import android.graphics.Typeface
-import android.os.Build
+import android.os.Build // 🟢 महत्वपूर्ण इम्पोर्ट सुनिश्चित किया गया!
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
@@ -117,6 +117,10 @@ class MainActivity : Activity() {
         }
 
         setContentView(mainLayout)
+    }
+
+    private fun isXposedActive(): Boolean {
+        return false
     }
 
     private fun loadCalibrationSettings() {
