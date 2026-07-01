@@ -10,6 +10,7 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        maven { url 'https://api.xposed.info/' } // Xposed API डाउनलोड करने के लिए यह बहुत ज़रूरी है!
     }
 }
 
