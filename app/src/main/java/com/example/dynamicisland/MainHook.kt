@@ -118,8 +118,8 @@ class MainHook : IXposedHookLoadPackage {
                 setCornerRadius(dpToPx(context, configuredRadius).toFloat())
             }
             elevation = dpToPx(context, 6).toFloat()
-            setClickable(true) // 🟢 कोटलिन कम्पाइलर सुरक्षित सेटर
-            setFocusable(true) // 🟢 कोटलिन कम्पाइलर सुरक्षित सेटर
+            setClickable(true)
+            setFocusable(true)
         }
 
         islandText = TextView(context).apply {
@@ -149,8 +149,12 @@ class MainHook : IXposedHookLoadPackage {
             }
         }
         
-        // Layout Constants का सीधा उपयोग (-1 यानी MATCH_PARENT, -2 यानी WRAP_CONTENT)
-        val visualizerParams = FrameLayout.LayoutParams(-2, -1, Gravity.RIGHT or Gravity.CENTER_VERTICAL)
+        // 🟢 Layout-conflict से बचने के लिए सीधे ViewGroup.LayoutParams का उपयोग करें
+        val visualizerParams = FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            Gravity.RIGHT or Gravity.CENTER_VERTICAL
+        )
         islandView?.addView(visualizerLayout, visualizerParams)
 
         var startX = 0f
@@ -210,22 +214,18 @@ class MainHook : IXposedHookLoadPackage {
                         }
                     }
                     "com.example.dynamicisland.QUERY_STATUS" -> {
-                        c.sendBroadcast(Intent("com.example.dynamicisland.REPLY_STATUS"))
+                        ctx.sendBroadcast(Intent("com.example.dynamicisland.REPLY_STATUS"))
                     }
                     "com.example.dynamicisland.SIMULATE_STATE" -> {
                         val state = i.getStringExtra("state") ?: "idle"
                         activeMode = state
-                        handleStateTransition(c, state)
+                        handleStateTransition(ctx, state)
                     }
                 }
             }
         }
 
-        if (Build.VERSION.SDK_INT >= 33) {
-            context.registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
-        } else {
-            context.registerReceiver(receiver, filter)
-        }
+        safeRegisterReceiver(context, receiver, filter)
     }
 
     private fun handleStateTransition(context: Context, state: String) {
@@ -318,7 +318,6 @@ class MainHook : IXposedHookLoadPackage {
         }
 
         animator.addUpdateListener { valAnim ->
-            // 🟢 बाइंडिंग क्रैश और कास्टिंग रोकने के लिए डायरेक्ट 'animatedFraction' प्रिमिटिव फ़्लोट का उपयोग (FIXED!)
             val fraction = valAnim.animatedFraction
             val currentW = (startW + (endW - startW) * fraction).toInt()
             val currentH = (startH + (endH - startH) * fraction).toInt()
@@ -343,6 +342,24 @@ class MainHook : IXposedHookLoadPackage {
             val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
             vibrator.vibrate(VibrationEffect.createOneShot(15, VibrationEffect.DEFAULT_AMPLITUDE))
         } catch (e: Exception) {}
+    }
+
+    private fun safeRegisterReceiver(context: Context, receiver: BroadcastReceiver, filter: IntentFilter) {
+        try {
+            if (Build.VERSION.SDK_INT >= 33) {
+                val method = Context::class.java.getMethod(
+                    "registerReceiver",
+                    BroadcastReceiver::class.java,
+                    IntentFilter::class.java,
+                    Int::class.java
+                )
+                method.invoke(context, receiver, filter, 2)
+            } else {
+                context.registerReceiver(receiver, filter)
+            }
+        } catch (e: Throwable) {
+            XposedBridge.log("Dynamic Island: Safe Receiver Registration failed - " + e.message)
+        }
     }
 
     private fun dpToPx(context: Context, dp: Int): Int {
