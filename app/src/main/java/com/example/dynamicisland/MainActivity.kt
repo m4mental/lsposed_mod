@@ -21,10 +21,8 @@ class MainActivity : Activity() {
 
     private lateinit var statusText: TextView
     private lateinit var contentFrame: LinearLayout
-    private var isModuleActive = false
-
-    // 🟢 डमी फ़ंक्शन को 'public' (कोटलिन में डिफ़ॉल्ट) किया गया है ताकि कंपाइलर इसे इनलाइन (Inline) करके मिटा न सके (FIXED!)
-    fun isXposedActive(): Boolean {
+    
+    private fun isXposedActive(): Boolean {
         return false
     }
 
@@ -32,7 +30,6 @@ class MainActivity : Activity() {
         override fun onReceive(context: Context?, intent: Intent?) {
             val i = intent ?: return
             if (i.action == "com.example.dynamicisland.REPLY_STATUS") {
-                isModuleActive = true
                 statusText.text = "● Module Status: ACTIVE"
                 statusText.setTextColor(Color.GREEN)
             }
