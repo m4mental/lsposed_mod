@@ -11,7 +11,7 @@ import android.os.Build
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
-import android.view.ViewGroup.LayoutParams
+import android.view.ViewGroup // LayoutParams के सीधे रिज़ॉल्यूशन के लिए मुख्य इम्पोर्ट
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.SeekBar
@@ -84,11 +84,11 @@ class MainActivity : Activity() {
             setTextColor(Color.GRAY)
         }
 
-        // Layout Constants का सीधा उपयोग (-2 यानी WRAP_CONTENT)
-        val paramCalib = LinearLayout.LayoutParams(0, -2).apply {
+        // 🟢 Layout-conflict से बचने के लिए सीधे ViewGroup.LayoutParams का उपयोग करें
+        val paramCalib = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
             weight = 1f
         }
-        val paramSim = LinearLayout.LayoutParams(0, -2).apply {
+        val paramSim = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
             weight = 1f
         }
 
@@ -137,7 +137,7 @@ class MainActivity : Activity() {
             contentFrame.addView(labelView)
 
             val seekBar = SeekBar(this).apply {
-                setMax(maxVal - minVal) // 🟢 सुरक्षित सेटर का उपयोग करें
+                setMax(maxVal - minVal)
                 setProgress(currentVal - minVal)
                 setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                     override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {
@@ -183,8 +183,8 @@ class MainActivity : Activity() {
                 }
                 sendBroadcast(intent)
             }
-            // Layout Constants का सीधा उपयोग (-1 यानी MATCH_PARENT, -2 यानी WRAP_CONTENT)
-            val params = LinearLayout.LayoutParams(-1, -2).apply {
+            // 🟢 सीधे ViewGroup.LayoutParams का उपयोग करें
+            val params = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
                 topMargin = 10
                 bottomMargin = 15
             }
@@ -202,11 +202,7 @@ class MainActivity : Activity() {
         super.onResume()
         val filter = IntentFilter("com.example.dynamicisland.REPLY_STATUS")
         
-        if (Build.VERSION.SDK_INT >= 33) {
-            registerReceiver(statusReceiver, filter, Context.RECEIVER_EXPORTED)
-        } else {
-            registerReceiver(statusReceiver, filter)
-        }
+        safeRegisterReceiver(this, statusReceiver, filter)
         
         sendBroadcast(Intent("com.example.dynamicisland.QUERY_STATUS"))
     }
@@ -227,5 +223,23 @@ class MainActivity : Activity() {
             putExtra("radius", sharedPref.getInt("radius", 20))
         }
         sendBroadcast(intent)
+    }
+
+    private fun safeRegisterReceiver(context: Context, receiver: BroadcastReceiver, filter: IntentFilter) {
+        try {
+            if (Build.VERSION.SDK_INT >= 33) {
+                val method = Context::class.java.getMethod(
+                    "registerReceiver",
+                    BroadcastReceiver::class.java,
+                    IntentFilter::class.java,
+                    Int::class.java
+                )
+                method.invoke(context, receiver, filter, 2)
+            } else {
+                context.registerReceiver(receiver, filter)
+            }
+        } catch (e: Throwable) {
+            context.registerReceiver(receiver, filter)
+        }
     }
 }
