@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.Color
+import android.graphics.PixelFormat
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.media.AudioManager
@@ -21,6 +22,7 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowManager
 import android.view.animation.OvershootInterpolator
 import android.widget.FrameLayout
 import android.widget.LinearLayout
@@ -30,7 +32,7 @@ import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XposedBridge
 import de.robv.android.xposed.XposedHelpers
 import de.robv.android.xposed.XSharedPreferences
-import de.robv.android.xposed.callbacks.XC_LoadPackage.LoadPackageParam
+import de.robv.android.xposed.callbacks.XC_LoadPackage
 import java.util.Random
 
 class MainHook : IXposedHookLoadPackage {
@@ -50,7 +52,9 @@ class MainHook : IXposedHookLoadPackage {
     private var timerRunnable: Runnable? = null
     private var countdownSecs = 60
 
-    override fun handleLoadPackage(lpparam: LoadPackageParam) {
+    private var isInitialized = false
+
+    override fun handleLoadPackage(lpparam: XC_LoadPackage.LoadPackageParam) {
         if (lpparam.packageName == "com.example.dynamicisland") {
             try {
                 XposedHelpers.findAndHookMethod(
@@ -58,7 +62,6 @@ class MainHook : IXposedHookLoadPackage {
                     lpparam.classLoader,
                     "isXposedActive",
                     object : XC_MethodHook() {
-                        // 🟢 कोटलिन-सुरक्षित XC_MethodHook.MethodHookParam डिक्लेरेशन (बग फिक्स!)
                         override fun beforeHookedMethod(param: XC_MethodHook.MethodHookParam?) {
                             val p = param ?: return
                             p.setResult(true)
@@ -74,11 +77,38 @@ class MainHook : IXposedHookLoadPackage {
         if (lpparam.packageName == "com.android.systemui") {
             try {
                 XposedHelpers.findAndHookMethod(
+                    "com.android.systemui.SystemUIApplication",
+                    lpparam.classLoader,
+                    "onCreate",
+                    object : XC_MethodHook() {
+                        override fun afterHookedMethod(param: XC_MethodHook.MethodHookParam?) {
+                            val p = param ?: return
+                            val app = p.thisObject as Application
+                            val context = app.applicationContext
+
+                            Handler(Looper.getMainLooper()).postDelayed({
+                                try {
+                                    // 🟢 यदि PhoneStatusBarView हुक नहीं हो पाया (कस्टम ROMs), तो WindowManager फॉलबैक का उपयोग करें
+                                    if (!isInitialized) {
+                                        XposedBridge.log("Dynamic Island: PhoneStatusBarView not found. Using Universal WindowManager Fallback!")
+                                        loadSavedSettings(context)
+                                        createDynamicIslandUniversal(context)
+                                        registerEventsAndSimulations(context)
+                                    }
+                                } catch (e: Exception) {
+                                    XposedBridge.log("Dynamic Island: Universal initialization failed - " + e.message)
+                                }
+                            }, 1500) // सिस्टम ऐप्स लोड होने के लिए हल्का डिले
+                        }
+                    }
+                )
+
+                // स्टॉक और सामान्य रॉम के लिए PhoneStatusBarView हुक
+                XposedHelpers.findAndHookMethod(
                     "com.android.systemui.statusbar.phone.PhoneStatusBarView",
                     lpparam.classLoader,
                     "onFinishInflate",
                     object : XC_MethodHook() {
-                        // 🟢 कोटलिन-सुरक्षित XC_MethodHook.MethodHookParam डिक्लेरेशन (बग फिक्स!)
                         override fun afterHookedMethod(param: XC_MethodHook.MethodHookParam?) {
                             val p = param ?: return
                             val statusBarView = p.thisObject as ViewGroup
@@ -86,11 +116,14 @@ class MainHook : IXposedHookLoadPackage {
 
                             Handler(Looper.getMainLooper()).post {
                                 try {
-                                    loadSavedSettings(context)
-                                    createDynamicIsland(context, statusBarView)
-                                    registerEventsAndSimulations(context)
+                                    if (!isInitialized) {
+                                        XposedBridge.log("Dynamic Island: PhoneStatusBarView hooked successfully.")
+                                        loadSavedSettings(context)
+                                        createDynamicIsland(context, statusBarView)
+                                        registerEventsAndSimulations(context)
+                                    }
                                 } catch (e: Exception) {
-                                    XposedBridge.log("Dynamic Island: Setup error - " + e.message)
+                                    XposedBridge.log("Dynamic Island: Normal setup error - " + e.message)
                                 }
                             }
                         }
@@ -111,24 +144,59 @@ class MainHook : IXposedHookLoadPackage {
         configuredRadius = pref.getInt("radius", 20)
     }
 
+    // सामान्य एंड्रॉइड और Nothing OS के लिए व्यू निर्माण
     private fun createDynamicIsland(context: Context, parent: ViewGroup) {
-        if (islandView != null) return
+        if (isInitialized) return
+        buildBaseIslandView(context)
 
+        val parentParams = FrameLayout.LayoutParams(dpToPx(context, configuredWidth), dpToPx(context, configuredHeight)).apply {
+            gravity = Gravity.CENTER_HORIZONTAL or Gravity.TOP
+            topMargin = dpToPx(context, configuredTopMargin)
+        }
+        parent.addView(islandView, parentParams)
+        isInitialized = true
+    }
+
+    // 🟢 यूनिवर्सल फॉलबैक: सभी एंड्रॉइड 16 रॉम्स के लिए विंडो ओवरले व्यू निर्माण
+    private fun createDynamicIslandUniversal(context: Context) {
+        if (isInitialized) return
+        buildBaseIslandView(context)
+
+        val wm = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        
+        // TYPE_STATUS_BAR_ADDITION (2014) सिस्टम ओवरले अनुमति का उपयोग करके तैरता हुआ व्यू जोड़ें
+        val params = WindowManager.LayoutParams(
+            dpToPx(context, configuredWidth),
+            dpToPx(context, configuredHeight),
+            2014, // WindowManager.LayoutParams.TYPE_STATUS_BAR_ADDITION
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.CENTER_HORIZONTAL or Gravity.TOP
+            y = dpToPx(context, configuredTopMargin)
+        }
+
+        wm.addView(islandView, params)
+        isInitialized = true
+    }
+
+    // मुख्य आइलैंड की बनावट (व्यू सेटअप)
+    private fun buildBaseIslandView(context: Context) {
         islandView = FrameLayout(context).apply {
             background = GradientDrawable().apply {
                 setColor(Color.BLACK)
                 setCornerRadius(dpToPx(context, configuredRadius).toFloat())
             }
             elevation = dpToPx(context, 6).toFloat()
-            isClickable = true
-            isFocusable = true
+            setClickable(true)
+            setFocusable(true)
         }
 
         islandText = TextView(context).apply {
             setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
             setGravity(Gravity.CENTER_VERTICAL or Gravity.LEFT)
-            alpha = 0f
+            setAlpha(0f)
             setPadding(dpToPx(context, 15), 0, dpToPx(context, 15), 0)
         }
         islandView?.addView(islandText)
@@ -136,7 +204,7 @@ class MainHook : IXposedHookLoadPackage {
         visualizerLayout = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            alpha = 0f
+            setAlpha(0f)
             setPadding(0, 0, dpToPx(context, 15), 0)
             
             for (i in 0..3) {
@@ -171,9 +239,9 @@ class MainHook : IXposedHookLoadPackage {
                     val diffX = ev.rawX - startX
                     if (Math.abs(diffX) > 60) {
                         if (diffX > 0) {
-                            audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_RAISE, SIGNAL_SHOW_UI_DUMMY())
+                            audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_RAISE, 0)
                         } else {
-                            audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_LOWER, AudioManager.FLAG_SHOW_UI)
+                            audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_LOWER, 0)
                         }
                         startX = ev.rawX
                         performHapticTick(context)
@@ -182,16 +250,6 @@ class MainHook : IXposedHookLoadPackage {
             }
             false
         }
-
-        val parentParams = FrameLayout.LayoutParams(dpToPx(context, configuredWidth), dpToPx(context, configuredHeight)).apply {
-            gravity = Gravity.CENTER_HORIZONTAL or Gravity.TOP
-            topMargin = dpToPx(context, configuredTopMargin)
-        }
-        parent.addView(islandView, parentParams)
-    }
-
-    private fun SIGNAL_SHOW_UI_DUMMY(): Int {
-        return AudioManager.FLAG_SHOW_UI
     }
 
     private fun registerEventsAndSimulations(context: Context) {
@@ -246,7 +304,7 @@ class MainHook : IXposedHookLoadPackage {
                 applyModeConfig(context, 230, 45, 1f, "⚡ Charging 45W • 82%", false)
             }
             "media" -> {
-                applyModeConfig(context, 240, 45, 1f, "♫ Now Playing: Nothing OS", true)
+                applyModeConfig(context, 240, 45, 1f, "♫ Now Playing: Android 16", true)
                 startEqualizerWaveAnimation(context)
             }
             "notification" -> {
@@ -327,6 +385,7 @@ class MainHook : IXposedHookLoadPackage {
             val currentW = (startW + (endW - startW) * fraction).toInt()
             val currentH = (startH + (endH - startH) * fraction).toInt()
 
+            // MarginLayoutParams का सुरक्षित रीयल-टाइम अपडेट (PhoneStatusBarView और WindowManager दोनों के लिए सामान्य)
             island.layoutParams = (island.layoutParams as ViewGroup.MarginLayoutParams).apply {
                 width = currentW
                 height = currentH
