@@ -15,7 +15,30 @@ android {
         versionName "1.0"
     }
 
+    signingConfigs {
+        // 🟢 केवल लोकल सिस्टम के लिए कस्टम कीस्टोर कॉन्फ़िगरेशन
+        localDebugConfig {
+            def keystoreFile = rootProject.file("debug.keystore")
+            if (keystoreFile.exists()) {
+                storeFile = keystoreFile
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
+        }
+    }
+
     buildTypes {
+        debug {
+            // 🟢 यदि 'debug.keystore' मौजूद है, तो उसका उपयोग करें।
+            // यदि गिटहब रनर पर मौजूद नहीं है, तो बिना एरर के डिफ़ॉल्ट "debug" कीस्टोर पर फॉलबैक करें (Option A)
+            def keystoreFile = rootProject.file("debug.keystore")
+            if (keystoreFile.exists()) {
+                signingConfig signingConfigs.localDebugConfig
+            } else {
+                signingConfig signingConfigs.debug
+            }
+        }
         release {
             minifyEnabled false
         }
