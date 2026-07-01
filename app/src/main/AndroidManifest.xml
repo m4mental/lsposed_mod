@@ -3,17 +3,27 @@
 
     <application
         android:allowBackup="true"
-        android:label="Dynamic Island LSPosed"
+        android:label="Dynamic Island Calibrator"
         android:theme="@android:style/Theme.DeviceDefault">
         
-        <!-- LSPosed को बताने के लिए कि यह एक मॉड्यूल है -->
+        <!-- लॉन्चर ऐप एक्टिविटी -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:label="Island Calibrator">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
         <meta-data
             android:name="xposedmodule"
             android:value="true" />
         
         <meta-data
             android:name="xposeddescription"
-            android:value="Dynamic Island Hook for Nothing Phone 2a (Android 16+)" />
+            android:value="Adjustable Dynamic Island Hook for Nothing Phone 2a" />
         
         <meta-data
             android:name="xposedminversion"
