@@ -4,7 +4,7 @@
     <application
         android:allowBackup="true"
         android:label="Dynamic Island LSPosed"
-        android:theme="@style/Theme.AppCompat">
+        android:theme="@android:style/Theme.DeviceDefault">
         
         <!-- LSPosed को बताने के लिए कि यह एक मॉड्यूल है -->
         <meta-data
